@@ -28,6 +28,7 @@ const jobs = {};
 
 // ─── Binary resolution ────────────────────────────────────────────────────────
 function findBinary(name) {
+  // 1. Try ffmpeg-static npm package (auto-installs correct binary for platform)
   if (name === 'ffmpeg') {
     try {
       const p = require('ffmpeg-static');
@@ -35,6 +36,7 @@ function findBinary(name) {
     } catch {}
   }
 
+  // 2. Common system paths
   const isWin = process.platform === 'win32';
   const candidates = isWin
     ? [
@@ -58,7 +60,7 @@ function findBinary(name) {
   }
 
   console.warn(`WARNING: ${name} not found — install it or run: npm install ffmpeg-static`);
-  return name;
+  return name; // last resort, let PATH try
 }
 
 function findYtDlp() {
@@ -80,6 +82,7 @@ function findYtDlp() {
   for (const c of candidates) {
     try { fs.accessSync(c, fs.constants.X_OK); console.log('yt-dlp: found at', c); return c; } catch {}
   }
+  // On Windows, .exe may not be needed if it's on PATH
   console.log('yt-dlp: using PATH');
   return 'yt-dlp';
 }
@@ -87,7 +90,7 @@ function findYtDlp() {
 const YTDLP  = findYtDlp();
 const FFMPEG = findBinary('ffmpeg');
 
-// ─── GET /api/check ───────────────────────────────────────────────────────────
+// ─── GET /api/check — verify binaries are working ────────────────────────────
 app.get('/api/check', (req, res) => {
   const results = { ytdlp: false, ffmpeg: false, ytdlpPath: YTDLP, ffmpegPath: FFMPEG };
 
@@ -185,12 +188,14 @@ app.post('/api/download', (req, res) => {
       return;
     }
 
+    // Strategy 1: read sidecar file yt-dlp wrote with the final path
     let finalPath = null;
     try {
       const txt = fs.readFileSync(pathFile, 'utf8').trim();
       if (txt && fs.existsSync(txt)) { finalPath = txt; console.log('[download] path from sidecar:', txt); }
     } catch {}
 
+    // Strategy 2: glob job dir for largest video file
     if (!finalPath) {
       const VIDEO_EXTS = new Set(['.mp4', '.mkv', '.webm', '.avi', '.mov', '.m4v']);
       const dirFiles = fs.readdirSync(jobDir);
@@ -305,55 +310,6 @@ app.get('/api/clips', (req, res) => {
       .sort((a, b) => b.created - a.created);
     res.json({ clips: files });
   } catch { res.json({ clips: [] }); }
-});
-
-// ─── POST /api/upload-local ───────────────────────────────────────────────────
-app.post('/api/upload-local', (req, res) => {
-  const jobId  = crypto.randomUUID();
-  const jobDir = path.join(WORK_DIR, jobId);
-  fs.mkdirSync(jobDir, { recursive: true });
-
-  const origName = req.headers['x-filename'] || 'video.mp4';
-  const extMatch = origName.match(/\.[a-zA-Z0-9]+$/);
-  const safeExt  = extMatch ? extMatch[0].slice(0, 6) : '.mp4';
-  const outPath  = path.join(jobDir, 'video' + safeExt);
-
-  const ws = fs.createWriteStream(outPath);
-  req.pipe(ws);
-
-  ws.on('finish', () => {
-    jobs[jobId] = { status: 'ready', progress: 100, message: 'Upload complete', filePath: outPath };
-    res.json({ jobId });
-  });
-  ws.on('error', err => { if (!res.headersSent) res.status(500).json({ error: err.message }); });
-  req.on('error', err => { if (!res.headersSent) res.status(500).json({ error: err.message }); });
-});
-
-// ─── GET /api/stream-clip/:filename ──────────────────────────────────────────
-app.get('/api/stream-clip/:filename', (req, res) => {
-  const fp = path.join(CLIPS_DIR, path.basename(req.params.filename));
-  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
-
-  const stat  = fs.statSync(fp);
-  const ext   = path.extname(fp).toLowerCase();
-  const mime  = { '.avi': 'video/x-msvideo', '.mp4': 'video/mp4', '.webm': 'video/webm' }[ext] || 'video/mp4';
-  const range = req.headers.range;
-
-  if (range) {
-    const [s, e] = range.replace(/bytes=/, '').split('-');
-    const start  = parseInt(s, 10);
-    const end    = e ? parseInt(e, 10) : stat.size - 1;
-    res.writeHead(206, {
-      'Content-Range':  `bytes ${start}-${end}/${stat.size}`,
-      'Accept-Ranges':  'bytes',
-      'Content-Length': end - start + 1,
-      'Content-Type':   mime,
-    });
-    fs.createReadStream(fp, { start, end }).pipe(res);
-  } else {
-    res.writeHead(200, { 'Content-Length': stat.size, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
-    fs.createReadStream(fp).pipe(res);
-  }
 });
 
 app.get('/api/download-clip/:filename', (req, res) => {
