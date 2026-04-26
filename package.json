@@ -1,0 +1,17 @@
+{
+  "name": "frc-auto-clipper",
+  "version": "2.0.0",
+  "description": "FRC 1678 Auto Clipper with yt-dlp backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "pip install yt-dlp --break-system-packages"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

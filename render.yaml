@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: frc-auto-clipper
+    env: node
+    buildCommand: |
+      npm install
+      pip install yt-dlp --break-system-packages
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: clips
+      mountPath: /opt/render/project/src/clips
+      sizeGB: 5
