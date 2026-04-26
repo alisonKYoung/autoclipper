@@ -242,9 +242,9 @@
     position:absolute; top:-3px; width:2px; height:10px; border-radius:1px;
     transform: translateX(-50%);
   }
-  .tl-marker.start-m { background:var(--blue); }
-  .tl-marker.end-m   { background:var(--accent2); }
-  .tl-marker.offset-m { background:var(--green); }
+  .tl-marker.start-m   { background:var(--blue); }
+  .tl-marker.end-m     { background:var(--accent2); }
+  .tl-marker.center2-m { background:var(--purple); }
 
   /* ── Transport ── */
   .transport {
@@ -269,9 +269,9 @@
     position:absolute; top:-3px; width:3px; height:12px; border-radius:1px;
     pointer-events:none; transform:translateX(-50%); display:none;
   }
-  .marker-pin.start-pin { background:var(--blue); }
-  .marker-pin.end-pin   { background:var(--accent2); }
-  .marker-pin.offset-pin { background:var(--green); }
+  .marker-pin.start-pin   { background:var(--blue); }
+  .marker-pin.end-pin     { background:var(--accent2); }
+  .marker-pin.center2-pin { background:var(--purple); }
 
   .transport-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .tc-btn {
@@ -475,17 +475,8 @@
         </div>
       </div>
 
-      <!-- Sync Settings -->
+      <!-- Load -->
       <div class="panel-section">
-        <h3>Sync Settings</h3>
-        <label>STARTING OFFSET (seconds)</label>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <input type="number" id="offsetInput" value="0.5" step="0.1" min="0" style="margin-bottom:0;flex:1;" />
-          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;">B delayed by</div>
-        </div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:8px;">
-          Clip B starts this many seconds after Clip A when using sync play. Set 0 to start simultaneously.
-        </div>
         <button class="btn btn-purple" id="loadBothBtn" disabled>▶ LOAD COMPARISON</button>
       </div>
 
@@ -512,8 +503,9 @@
           </div>
           <div class="slot-timeline">
             <div class="slot-progress-fill" id="progressA" style="width:0%"></div>
-            <div class="tl-marker start-m" id="tlStartA" style="display:none"></div>
-            <div class="tl-marker end-m"   id="tlEndA"   style="display:none"></div>
+            <div class="tl-marker start-m"   id="tlStartA"   style="display:none"></div>
+            <div class="tl-marker end-m"     id="tlEndA"     style="display:none"></div>
+            <div class="tl-marker center2-m" id="tlCenter2A" style="display:none"></div>
           </div>
         </div>
 
@@ -534,8 +526,9 @@
           </div>
           <div class="slot-timeline">
             <div class="slot-progress-fill" id="progressB" style="width:0%"></div>
-            <div class="tl-marker start-m" id="tlStartB" style="display:none"></div>
-            <div class="tl-marker end-m"   id="tlEndB"   style="display:none"></div>
+            <div class="tl-marker start-m"   id="tlStartB"   style="display:none"></div>
+            <div class="tl-marker end-m"     id="tlEndB"     style="display:none"></div>
+            <div class="tl-marker center2-m" id="tlCenter2B" style="display:none"></div>
           </div>
         </div>
 
@@ -558,6 +551,11 @@
           <div class="mbar-label">A TIME-TO-CL</div>
           <div class="mbar-value" id="mbarATime">—</div>
         </div>
+        <div class="mbar-chip">
+          <div class="mbar-dot" style="background:var(--purple)"></div>
+          <div class="mbar-label">A CENTER 2</div>
+          <div class="mbar-value" id="mbarACenter2">—</div>
+        </div>
         <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px;"></div>
         <div class="mbar-chip">
           <div class="mbar-dot" style="background:var(--blue)"></div>
@@ -574,6 +572,11 @@
           <div class="mbar-label">B TIME-TO-CL</div>
           <div class="mbar-value" id="mbarBTime">—</div>
         </div>
+        <div class="mbar-chip">
+          <div class="mbar-dot" style="background:var(--purple)"></div>
+          <div class="mbar-label">B CENTER 2</div>
+          <div class="mbar-value" id="mbarBCenter2">—</div>
+        </div>
       </div>
 
       <!-- Transport -->
@@ -582,8 +585,9 @@
         <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">CLIP A POSITION</div>
         <div class="seekbar-wrap" id="seekbarWrap">
           <div class="seekbar-fill" id="seekFill"></div>
-          <div class="marker-pin start-pin" id="pinStartA"></div>
-          <div class="marker-pin end-pin"   id="pinEndA"></div>
+          <div class="marker-pin start-pin"   id="pinStartA"></div>
+          <div class="marker-pin end-pin"     id="pinEndA"></div>
+          <div class="marker-pin center2-pin" id="pinCenter2A"></div>
           <input type="range" id="seekbar" min="0" max="10000" value="0" step="1" />
         </div>
         <div class="transport-controls">
@@ -639,16 +643,16 @@ function parseClipName(filename) {
 // ───────────────────────────────────────────────────────────
 const S = {
   syncEnabled: true,
-  offset: 0.5,       // B delayed by this many seconds
+  offset: 0,
   fpsA: 60, fpsB: 60,
   loadedA: false, loadedB: false,
-  markersA: null, // { start, end, timeToCL } in seconds
+  markersA: null, // { start, end, timeToCL, center2 } in seconds
   markersB: null,
-  sourceA: null,  // { type:'queue'|'local'|'gdrive', filename, src }
+  sourceA: null,  // { type:'queue'|'local'|'gdrive', filename, src, center2Time }
   sourceB: null,
-  queueClips: [],  // fetched from /api/clips
+  queueClips: [],  // loaded from localStorage
   gdriveTokenA: null, gdriveTokenB: null,
-  activeSlot: 'a',  // which slot keyboard controls
+  activeSlot: 'a',
 };
 
 // ───────────────────────────────────────────────────────────
@@ -701,18 +705,15 @@ document.querySelectorAll('.stab').forEach(btn => {
 // ───────────────────────────────────────────────────────────
 // QUEUE LOADER
 // ───────────────────────────────────────────────────────────
-async function loadQueue() {
+function loadQueue() {
   try {
-    const r = await fetch('/api/clips');
-    const { clips } = await r.json();
-    S.queueClips = clips || [];
-    renderQueuePicker('a');
-    renderQueuePicker('b');
+    const raw = localStorage.getItem('frc_clipper_queue');
+    S.queueClips = raw ? JSON.parse(raw) : [];
   } catch {
     S.queueClips = [];
-    renderQueuePicker('a');
-    renderQueuePicker('b');
   }
+  renderQueuePicker('a');
+  renderQueuePicker('b');
 }
 
 function renderQueuePicker(slot) {
@@ -733,12 +734,11 @@ function renderQueuePicker(slot) {
 }
 
 function selectQueueClip(slot, clip) {
-  // Highlight
   document.querySelectorAll('#qp' + slot.toUpperCase() + ' .qp-item').forEach(i => {
     i.classList.toggle('selected', i.dataset.filename === clip.filename);
   });
-  const src = '/api/download-clip/' + encodeURIComponent(clip.filename);
-  setSlotSource(slot, { type:'queue', filename: clip.filename, src });
+  const src = '/api/stream-clip/' + encodeURIComponent(clip.filename);
+  setSlotSource(slot, { type: 'queue', filename: clip.filename, src, center2Time: clip.center2Time ?? null });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -921,40 +921,37 @@ document.getElementById('loadBothBtn').addEventListener('click', loadComparison)
 
 async function loadComparison() {
   if (!S.sourceA || !S.sourceB) { toast('Select both clips first.', 'error'); return; }
-  S.offset = parseFloat(document.getElementById('offsetInput').value) || 0;
-
-  // Load A
-  await loadSlotVideo('a', S.sourceA);
-  // Load B
-  await loadSlotVideo('b', S.sourceB);
-
-  transport.style.display = 'block';
-  document.getElementById('markersBar').style.display = 'flex';
-  setStatus('READY', 'ready');
-  toast('Comparison loaded — use Space to play both', 'success');
+  setStatus('LOADING...', 'busy');
+  try {
+    await loadSlotVideo('a', S.sourceA);
+    await loadSlotVideo('b', S.sourceB);
+    transport.style.display = 'block';
+    document.getElementById('markersBar').style.display = 'flex';
+    setStatus('READY', 'ready');
+    toast('Comparison loaded — use Space to play both', 'success');
+  } catch(e) {
+    setStatus('ERROR', 'error');
+    toast('Failed to load: ' + e.message, 'error', 5000);
+  }
 }
 
 function loadSlotVideo(slot, source) {
   return new Promise((resolve, reject) => {
     const vid = slot === 'a' ? videoA : videoB;
     const ph  = document.getElementById('placeholder' + slot.toUpperCase());
-    vid.src = source.src;
-    vid.load();
     vid.onloadedmetadata = () => {
       ph.style.display = 'none';
       vid.style.display = 'block';
-      if (slot === 'a') { S.loadedA = true; }
-      else              { S.loadedB = true; }
-      // Parse markers from filename
-      parseMarkersFromFilename(slot, source.filename, vid.duration);
-      if (slot === 'a') {
-        document.getElementById('titleA').textContent = source.filename.replace(/\.[^.]+$/, '');
-      } else {
-        document.getElementById('titleB').textContent = source.filename.replace(/\.[^.]+$/, '');
-      }
+      if (slot === 'a') S.loadedA = true;
+      else              S.loadedB = true;
+      parseMarkersFromFilename(slot, source.filename, vid.duration, source.center2Time ?? null);
+      const titleEl = document.getElementById('title' + slot.toUpperCase());
+      titleEl.textContent = source.filename.replace(/\.[^.]+$/, '');
       resolve();
     };
-    vid.onerror = () => reject(new Error('Cannot load ' + source.filename));
+    vid.onerror = () => reject(new Error('Cannot load ' + source.filename + ' — unsupported format?'));
+    vid.src = source.src;
+    vid.load();
   });
 }
 
@@ -966,7 +963,7 @@ function loadSlotVideo(slot, source) {
 // We'll treat it as if the clip starts at t=0 (after pre-roll).
 // We know: preRoll default 0.5s, so start marker = 0.5s into clip.
 // End marker = start + timeToCL.
-function parseMarkersFromFilename(slot, filename, duration) {
+function parseMarkersFromFilename(slot, filename, duration, center2Time = null) {
   const info = parseClipName(filename);
   if (!info) {
     if (slot === 'a') S.markersA = null;
@@ -975,50 +972,61 @@ function parseMarkersFromFilename(slot, filename, duration) {
     return;
   }
 
-  // Assume default pre-roll of 0.5s (could make this configurable)
-  const preRoll = 0.5;
+  const preRoll  = 0.5;
   const startSec = preRoll;
   const endSec   = preRoll + info.timeToCL;
+  const center2Sec = (center2Time != null) ? preRoll + parseFloat(center2Time) : null;
 
-  const markers = { start: startSec, end: endSec, timeToCL: info.timeToCL };
+  const markers = { start: startSec, end: endSec, timeToCL: info.timeToCL, center2: center2Sec, center2Time };
 
-  if (slot === 'a') { S.markersA = markers; }
-  else              { S.markersB = markers; }
+  if (slot === 'a') S.markersA = markers;
+  else              S.markersB = markers;
 
-  // Show marker pins on timeline
   const dur = duration || 1;
-  const startPct = (startSec / dur * 100).toFixed(2) + '%';
-  const endPct   = (endSec   / dur * 100).toFixed(2) + '%';
+  const S_ = slot.toUpperCase();
+  const tlStart   = document.getElementById('tlStart'   + S_);
+  const tlEnd     = document.getElementById('tlEnd'     + S_);
+  const tlCenter2 = document.getElementById('tlCenter2' + S_);
 
-  const tlStart = document.getElementById('tlStart' + slot.toUpperCase());
-  const tlEnd   = document.getElementById('tlEnd'   + slot.toUpperCase());
-  tlStart.style.left    = startPct;
+  tlStart.style.left    = (startSec / dur * 100).toFixed(2) + '%';
   tlStart.style.display = 'block';
-  tlEnd.style.left      = endPct;
+  tlEnd.style.left      = (endSec   / dur * 100).toFixed(2) + '%';
   tlEnd.style.display   = 'block';
+  if (center2Sec != null) {
+    tlCenter2.style.left    = (center2Sec / dur * 100).toFixed(2) + '%';
+    tlCenter2.style.display = 'block';
+  } else {
+    tlCenter2.style.display = 'none';
+  }
 
   updateMarkersBar();
-  toast(`Markers detected for ${slot.toUpperCase()}: ${info.timeToCL}s to CL`, 'info');
+  toast(`Markers for ${S_}: ${info.timeToCL}s to CL` + (center2Time != null ? `, ${parseFloat(center2Time).toFixed(4)}s to C2` : ''), 'info');
 }
 
 function updateMarkersBar() {
   const m = S.markersA;
   const n = S.markersB;
-  document.getElementById('mbarAStart').textContent = m ? formatSec(m.start) : '—';
-  document.getElementById('mbarAEnd').textContent   = m ? formatSec(m.end)   : '—';
-  document.getElementById('mbarATime').textContent  = m ? m.timeToCL.toFixed(4) + 's' : '—';
-  document.getElementById('mbarBStart').textContent = n ? formatSec(n.start) : '—';
-  document.getElementById('mbarBEnd').textContent   = n ? formatSec(n.end)   : '—';
-  document.getElementById('mbarBTime').textContent  = n ? n.timeToCL.toFixed(4) + 's' : '—';
+  document.getElementById('mbarAStart').textContent   = m ? formatSec(m.start) : '—';
+  document.getElementById('mbarAEnd').textContent     = m ? formatSec(m.end)   : '—';
+  document.getElementById('mbarATime').textContent    = m ? m.timeToCL.toFixed(4) + 's' : '—';
+  document.getElementById('mbarACenter2').textContent = (m && m.center2Time != null) ? parseFloat(m.center2Time).toFixed(4) + 's' : '—';
+  document.getElementById('mbarBStart').textContent   = n ? formatSec(n.start) : '—';
+  document.getElementById('mbarBEnd').textContent     = n ? formatSec(n.end)   : '—';
+  document.getElementById('mbarBTime').textContent    = n ? n.timeToCL.toFixed(4) + 's' : '—';
+  document.getElementById('mbarBCenter2').textContent = (n && n.center2Time != null) ? parseFloat(n.center2Time).toFixed(4) + 's' : '—';
 
-  // Also show seekbar markers for A
   if (m && S.loadedA && videoA.duration) {
-    const pctStart = m.start / videoA.duration * 100;
-    const pctEnd   = m.end   / videoA.duration * 100;
-    const pinS = document.getElementById('pinStartA');
-    const pinE = document.getElementById('pinEndA');
-    pinS.style.left = pctStart + '%'; pinS.style.display = 'block';
-    pinE.style.left = pctEnd   + '%'; pinE.style.display = 'block';
+    const d = videoA.duration;
+    const pinS  = document.getElementById('pinStartA');
+    const pinE  = document.getElementById('pinEndA');
+    const pinC2 = document.getElementById('pinCenter2A');
+    pinS.style.left  = (m.start / d * 100) + '%'; pinS.style.display  = 'block';
+    pinE.style.left  = (m.end   / d * 100) + '%'; pinE.style.display  = 'block';
+    if (m.center2 != null) {
+      pinC2.style.left = (m.center2 / d * 100) + '%'; pinC2.style.display = 'block';
+    } else {
+      pinC2.style.display = 'none';
+    }
   }
 }
 
@@ -1182,8 +1190,8 @@ document.getElementById('nextFrameBtn').addEventListener('click', () => {
 // ───────────────────────────────────────────────────────────
 // INIT
 // ───────────────────────────────────────────────────────────
+loadQueue();
 (async () => {
-  await loadQueue();
   try {
     const r = await fetch('/api/check');
     const c = await r.json();

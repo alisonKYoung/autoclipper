@@ -19,6 +19,7 @@
     --text: #e8ecf4;
     --muted: #7a8099;
     --red: #ff3d3d;
+    --purple: #b57bff;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -106,9 +107,19 @@
   .timing-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:8px; }
   .timing-box .tb-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
   .timing-box .tb-value { font-family:'Share Tech Mono',monospace; font-size:15px; color:var(--text); margin-top:2px; }
-  .timing-box.start .tb-value { color:var(--blue); }
-  .timing-box.end   .tb-value { color:var(--accent2); }
-  .timing-box.time  .tb-value { color:var(--green); font-size:13px; }
+  .timing-box.start   .tb-value { color:var(--blue); }
+  .timing-box.end     .tb-value { color:var(--accent2); }
+  .timing-box.time    .tb-value { color:var(--green); font-size:13px; }
+  .timing-box.center2 .tb-value { color:var(--purple); font-size:13px; }
+
+  .btn-set-c2 {
+    padding:8px; border:none; border-radius:4px; cursor:pointer;
+    font-family:'Rajdhani',sans-serif; font-weight:600; font-size:12px;
+    letter-spacing:1px; text-transform:uppercase; transition:all 0.15s;
+    background:var(--purple); color:#fff; width:100%; margin-bottom:6px;
+  }
+  .btn-set-c2:disabled { opacity:0.35; cursor:not-allowed; }
+  .btn-set-c2:hover:not(:disabled) { background:#cba3ff; }
 
   .frame-btn-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px; }
   .btn-set-start, .btn-set-end {
@@ -263,12 +274,17 @@
             <div class="tb-label">⏱ Time to Centerline</div>
             <div class="tb-value" id="dispTime">—</div>
           </div>
+          <div class="timing-box center2" style="grid-column:1/-1">
+            <div class="tb-label">⏱ Time to Center 2</div>
+            <div class="tb-value" id="dispCenter2">—</div>
+          </div>
         </div>
 
         <div class="frame-btn-row">
           <button class="btn-set-start" id="setStartBtn" disabled>[ SET START</button>
           <button class="btn-set-end"   id="setEndBtn"   disabled>SET END ]</button>
         </div>
+        <button class="btn-set-c2" id="setC2Btn" disabled>✦ SET CENTER 2</button>
         <button class="btn btn-secondary" id="clearMarkers" style="margin-bottom:0">✕ Clear Markers</button>
       </div>
 
@@ -323,6 +339,7 @@
         <div class="kbd-hint"><kbd>Space</kbd><kbd>K</kbd> Play/Pause</div>
         <div class="kbd-hint"><kbd>[</kbd> Set Start</div>
         <div class="kbd-hint"><kbd>]</kbd> Set End</div>
+        <div class="kbd-hint"><kbd>\</kbd> Set Center 2</div>
         <div class="kbd-hint"><kbd>Enter</kbd> Add to queue</div>
       </div>
     </div>
@@ -353,11 +370,34 @@ const S = {
   fps: 60,
   startFrame: null,
   endFrame: null,
-  clips: [],         // { id, team, pos, timeToCL, filename, clipStart, clipDur, sourceJobId, clipJobId, status, blob }
+  center2Frame: null,
+  clips: [],         // { id, team, pos, timeToCL, center2Time, filename, clipStart, clipDur, sourceJobId, clipJobId, status }
   sourceJobId: null, // yt-dlp download job id
   isLocalFile: false,
   localObjectUrl: null,
 };
+
+const QUEUE_KEY = 'frc_clipper_queue';
+function saveQueue() {
+  const data = S.clips.map(c => ({
+    id: c.id, team: c.team, pos: c.pos,
+    timeToCL: c.timeToCL, center2Time: c.center2Time ?? null,
+    filename: c.filename, clipStart: c.clipStart, clipDur: c.clipDur,
+    startFrame: c.startFrame, endFrame: c.endFrame, center2Frame: c.center2Frame ?? null,
+    sourceJobId: c.sourceJobId, isLocalFile: c.isLocalFile,
+    status: c.status === 'processing' ? 'queued' : c.status,
+    clipJobId: c.status === 'ready' ? c.clipJobId : null,
+  }));
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(data)); } catch {}
+}
+function loadSavedQueue() {
+  try {
+    const raw = localStorage.getItem(QUEUE_KEY);
+    if (!raw) return;
+    S.clips = JSON.parse(raw);
+    renderQueue();
+  } catch {}
+}
 
 // ─── DOM ──────────────────────────────────────────────────────────────────────
 const video       = document.getElementById('videoPlayer');
@@ -374,8 +414,10 @@ const curTime     = document.getElementById('curTime');
 const dispStart   = document.getElementById('dispStart');
 const dispEnd     = document.getElementById('dispEnd');
 const dispTime    = document.getElementById('dispTime');
+const dispCenter2 = document.getElementById('dispCenter2');
 const setStartBtn = document.getElementById('setStartBtn');
 const setEndBtn   = document.getElementById('setEndBtn');
+const setC2Btn    = document.getElementById('setC2Btn');
 const addClipBtn  = document.getElementById('addClipBtn');
 const clipList    = document.getElementById('clipList');
 const clipCount   = document.getElementById('clipCount');
@@ -435,6 +477,12 @@ function recalc() {
     dispTime.textContent = '—';
     addClipBtn.disabled = true;
   }
+  if (S.startFrame !== null && S.center2Frame !== null && S.center2Frame > S.startFrame) {
+    dispCenter2.textContent = ((S.center2Frame - S.startFrame) / S.fps).toFixed(4) + 's';
+  } else {
+    dispCenter2.textContent = '—';
+  }
+  setC2Btn.disabled = !S.loaded;
 }
 
 // ─── Load video into player ───────────────────────────────────────────────────
@@ -449,6 +497,7 @@ function loadVideoSrc(src) {
     transport.style.display = 'block';
     setStartBtn.disabled = false;
     setEndBtn.disabled   = false;
+    setC2Btn.disabled    = false;
     totFrame.textContent = Math.round(video.duration * S.fps);
     setStatus('READY', 'ready');
     toast('Video loaded — use , and . to scrub frames', 'success');
@@ -574,9 +623,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ',')     { e.preventDefault(); stepFrame(-1); }
   if (e.key === '.')     { e.preventDefault(); stepFrame(1); }
   if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); togglePlay(); }
-  if (e.key === '[')     { e.preventDefault(); setStart(); }
-  if (e.key === ']')     { e.preventDefault(); setEnd(); }
-  if (e.key === 'Enter') { e.preventDefault(); if (!addClipBtn.disabled) addClip(); }
+  if (e.key === '[')      { e.preventDefault(); setStart(); }
+  if (e.key === ']')      { e.preventDefault(); setEnd(); }
+  if (e.key === '\\')     { e.preventDefault(); setCenter2(); }
+  if (e.key === 'Enter')  { e.preventDefault(); if (!addClipBtn.disabled) addClip(); }
 });
 
 // ─── Markers ──────────────────────────────────────────────────────────────────
@@ -595,11 +645,19 @@ function setEnd() {
   toast('End: frame ' + S.endFrame + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
 }
 
+function setCenter2() {
+  if (!S.loaded) return;
+  S.center2Frame = frame();
+  recalc(); updateDisplay();
+  toast('Center 2: frame ' + S.center2Frame + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
+}
+
 setStartBtn.addEventListener('click', setStart);
 setEndBtn.addEventListener('click', setEnd);
+setC2Btn.addEventListener('click', setCenter2);
 document.getElementById('clearMarkers').addEventListener('click', () => {
-  S.startFrame = S.endFrame = null;
-  dispStart.textContent = dispEnd.textContent = dispTime.textContent = '—';
+  S.startFrame = S.endFrame = S.center2Frame = null;
+  dispStart.textContent = dispEnd.textContent = dispTime.textContent = dispCenter2.textContent = '—';
   startMarker.style.display = endMarker.style.display = 'none';
   addClipBtn.disabled = true;
   toast('Markers cleared.');
@@ -614,17 +672,21 @@ function addClip() {
   if (S.startFrame === null || S.endFrame === null) { toast('Set both start and end frames.', 'error'); return; }
   if (S.endFrame <= S.startFrame) { toast('End frame must be after start frame.', 'error'); return; }
 
-  const timeToCL  = ((S.endFrame - S.startFrame) / S.fps).toFixed(4);
+  const timeToCL   = ((S.endFrame - S.startFrame) / S.fps).toFixed(4);
+  const center2Time = (S.center2Frame !== null && S.center2Frame > S.startFrame)
+    ? ((S.center2Frame - S.startFrame) / S.fps).toFixed(4)
+    : null;
   const preRoll   = parseFloat(document.getElementById('preRoll').value) || 0.5;
   const clipDur   = parseFloat(document.getElementById('clipDur').value) || 22.5;
   const clipStart = Math.max(0, frameToSec(S.startFrame) - preRoll);
-  const filename  = `${team} ${timeToCL} ${pos}.avi`;
+  const filename  = `${team} ${timeToCL} ${pos}.mp4`;
 
   S.clips.push({
     id: Date.now(),
-    team, pos, timeToCL, filename,
+    team, pos, timeToCL, center2Time, filename,
     clipStart, clipDur,
     startFrame: S.startFrame, endFrame: S.endFrame,
+    center2Frame: S.center2Frame,
     sourceJobId: S.sourceJobId,
     isLocalFile: S.isLocalFile,
     localSrc: S.localObjectUrl,
@@ -633,6 +695,7 @@ function addClip() {
   });
 
   renderQueue();
+  saveQueue();
   toast('Added: ' + filename, 'success');
 }
 
@@ -696,6 +759,7 @@ function updateClipUI(clip) {
 function removeClip(id) {
   S.clips = S.clips.filter(c => c.id !== id);
   renderQueue();
+  saveQueue();
 }
 
 // ─── Process + download a clip ────────────────────────────────────────────────
@@ -771,6 +835,7 @@ processAllBtn.addEventListener('click', async () => {
 });
 
 // ─── Startup check ────────────────────────────────────────────────────────────
+loadSavedQueue();
 (async () => {
   try {
     const r = await fetch('/api/check');
