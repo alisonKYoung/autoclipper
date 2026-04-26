@@ -274,8 +274,11 @@ app.post('/api/clip', (req, res) => {
 
   const proc = spawn(FFMPEG, [
     '-y', '-ss', String(startTime), '-i', srcJob.filePath,
-    '-t', String(duration), '-c:v', 'mpeg4', '-q:v', '5',
-    '-c:a', 'mp3', '-b:a', '128k', outPath,
+    '-t', String(duration),
+    '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
+    '-c:a', 'aac', '-b:a', '128k',
+    '-movflags', '+faststart',
+    outPath,
   ]);
 
   proc.on('error', err => {
@@ -305,7 +308,7 @@ app.post('/api/clip', (req, res) => {
 // ─── GET /api/clips ───────────────────────────────────────────────────────────
 app.get('/api/clips', (req, res) => {
   try {
-    const files = fs.readdirSync(CLIPS_DIR).filter(f => f.endsWith('.avi'))
+    const files = fs.readdirSync(CLIPS_DIR).filter(f => /\.(mp4|avi)$/i.test(f))
       .map(f => { const s = fs.statSync(path.join(CLIPS_DIR, f)); return { filename: f, size: s.size, created: s.mtimeMs }; })
       .sort((a, b) => b.created - a.created);
     res.json({ clips: files });
@@ -316,6 +319,25 @@ app.get('/api/download-clip/:filename', (req, res) => {
   const fp = path.join(CLIPS_DIR, path.basename(req.params.filename));
   if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
   res.download(fp);
+});
+
+app.get('/api/stream-clip/:filename', (req, res) => {
+  const fp = path.join(CLIPS_DIR, path.basename(req.params.filename));
+  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
+  const stat = fs.statSync(fp);
+  const ext  = path.extname(fp).toLowerCase();
+  const mime = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.avi': 'video/x-msvideo' }[ext] || 'video/mp4';
+  const range = req.headers.range;
+  if (range) {
+    const [s, e] = range.replace(/bytes=/, '').split('-');
+    const start  = parseInt(s, 10);
+    const end    = e ? parseInt(e, 10) : stat.size - 1;
+    res.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${stat.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Content-Type': mime });
+    fs.createReadStream(fp, { start, end }).pipe(res);
+  } else {
+    res.writeHead(200, { 'Content-Length': stat.size, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
+    fs.createReadStream(fp).pipe(res);
+  }
 });
 
 app.delete('/api/clip/:filename', (req, res) => {
