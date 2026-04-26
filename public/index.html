@@ -19,6 +19,7 @@
     --text: #e8ecf4;
     --muted: #7a8099;
     --red: #ff3d3d;
+    --purple: #b57bff;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -43,7 +44,6 @@
 
   .app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
 
-  /* ── Header ── */
   header {
     display: flex; align-items: center; gap: 14px;
     padding: 10px 20px;
@@ -61,10 +61,8 @@
   .status-dot.error { background:var(--red); box-shadow:0 0 8px var(--red); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  /* ── Main layout ── */
   .main { display:flex; flex:1; overflow:hidden; }
 
-  /* ── Sidebar ── */
   .sidebar { width:270px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; }
   .sb-section { padding:14px 16px; border-bottom:1px solid var(--border); }
   .sb-section h3 { font-family:'Rajdhani',sans-serif; font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
@@ -94,14 +92,12 @@
   .btn-green    { background:var(--green); color:#000; }
   .btn-green:hover:not(:disabled)    { background:#69ffb3; }
 
-  /* Progress bar inline */
   .mini-progress { display:none; margin-bottom:8px; }
   .mini-progress.show { display:block; }
   .mini-bar-wrap { height:3px; background:var(--border); border-radius:2px; margin-top:5px; }
   .mini-bar-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s; width:0%; }
   .mini-msg { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--muted); }
 
-  /* Timing */
   .timing-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px; }
   .timing-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:8px; }
   .timing-box .tb-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
@@ -122,7 +118,6 @@
   .btn-set-end   { background:var(--accent2); color:#fff; }
   .btn-set-end:hover:not(:disabled)   { background:#ff7052; }
 
-  /* ── Video area ── */
   .video-area { flex:1; display:flex; flex-direction:column; background:#000; overflow:hidden; }
   .video-wrapper { flex:1; display:flex; align-items:center; justify-content:center; position:relative; background:#000; }
   #videoPlayer { width:100%; height:100%; display:none; object-fit:contain; }
@@ -130,15 +125,15 @@
   .video-placeholder svg { opacity:0.2; }
   .video-placeholder p { font-family:'Share Tech Mono',monospace; font-size:12px; letter-spacing:1px; }
 
-  /* Transport */
   .transport { background:var(--surface); border-top:1px solid var(--border); padding:9px 14px; flex-shrink:0; display:none; }
   .seekbar-wrap { position:relative; height:6px; background:var(--surface2); border-radius:3px; margin-bottom:9px; cursor:pointer; }
   #seekbar { width:100%; height:100%; -webkit-appearance:none; appearance:none; background:transparent; cursor:pointer; position:absolute; top:0; left:0; }
   #seekbar::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; background:var(--accent); border-radius:50%; cursor:pointer; }
   .seekbar-fill { position:absolute; top:0; left:0; height:100%; background:var(--accent); border-radius:3px; pointer-events:none; }
   .start-marker, .end-marker { position:absolute; top:-4px; width:3px; height:14px; border-radius:1px; pointer-events:none; transform:translateX(-50%); display:none; }
-  .start-marker { background:var(--blue); }
-  .end-marker   { background:var(--accent2); }
+  .start-marker  { background:var(--blue); }
+  .end-marker    { background:var(--accent2); }
+  .end2-marker   { position:absolute; top:-4px; width:3px; height:14px; border-radius:1px; pointer-events:none; transform:translateX(-50%); display:none; background:var(--purple); }
 
   .transport-controls { display:flex; align-items:center; gap:6px; }
   .tc-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:5px 11px; border-radius:4px; font-family:'Share Tech Mono',monospace; font-size:11px; cursor:pointer; transition:all 0.15s; }
@@ -147,12 +142,10 @@
   .frame-counter { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--muted); margin-left:auto; }
   .frame-counter span { color:var(--text); }
 
-  /* kbd hints */
   .kbd-hints { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:5px 14px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0; }
   .kbd-hint { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--muted); }
   kbd { background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:1px 5px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text); }
 
-  /* ── Right panel: clip queue ── */
   .clip-queue { width:255px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
   .cq-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   .cq-header h3 { font-family:'Rajdhani',sans-serif; font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
@@ -179,7 +172,6 @@
 
   .cq-footer { padding:10px; border-top:1px solid var(--border); }
 
-  /* Toast */
   .toast { position:fixed; bottom:20px; right:20px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:10px 18px; font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text); z-index:200; transform:translateY(60px); opacity:0; transition:all 0.3s; max-width:320px; }
   .toast.show    { transform:translateY(0); opacity:1; }
   .toast.success { border-color:var(--green); color:var(--green); }
@@ -199,7 +191,6 @@
 <body>
 <div class="app">
 
-  <!-- HEADER -->
   <header>
     <div class="logo">1678 <span>Auto Clipper</span></div>
     <div class="tag">REBUILT 2026</div>
@@ -212,7 +203,6 @@
 
   <div class="main">
 
-    <!-- LEFT SIDEBAR -->
     <div class="sidebar">
 
       <div class="sb-section">
@@ -260,14 +250,21 @@
             <div class="tb-value" id="dispEnd">—</div>
           </div>
           <div class="timing-box time" style="grid-column:1/-1">
-            <div class="tb-label">⏱ Time to Centerline</div>
+            <div class="tb-label">⏱ Time to CL1</div>
             <div class="tb-value" id="dispTime">—</div>
+          </div>
+          <div class="timing-box" style="grid-column:1/-1;border-color:var(--purple)">
+            <div class="tb-label" style="color:var(--purple)">⏱ Time to CL2 (optional)</div>
+            <div class="tb-value" id="dispTime2" style="color:var(--purple);font-size:13px">—</div>
           </div>
         </div>
 
         <div class="frame-btn-row">
           <button class="btn-set-start" id="setStartBtn" disabled>[ SET START</button>
           <button class="btn-set-end"   id="setEndBtn"   disabled>SET END ]</button>
+        </div>
+        <div style="margin-bottom:6px;">
+          <button id="setEnd2Btn" disabled style="width:100%;padding:8px;border:none;border-radius:4px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;letter-spacing:1px;text-transform:uppercase;transition:all 0.15s;background:var(--purple);color:#fff;opacity:0.35;">SET CL2 ]</button>
         </div>
         <button class="btn btn-secondary" id="clearMarkers" style="margin-bottom:0">✕ Clear Markers</button>
       </div>
@@ -283,7 +280,6 @@
 
     </div>
 
-    <!-- VIDEO AREA -->
     <div class="video-area">
       <div class="video-wrapper" id="videoWrapper">
         <div class="video-placeholder" id="placeholder">
@@ -304,6 +300,7 @@
           <div class="seekbar-fill" id="seekFill"></div>
           <div class="start-marker" id="startMarker"></div>
           <div class="end-marker"   id="endMarker"></div>
+          <div class="end2-marker"  id="end2Marker"></div>
           <input type="range" id="seekbar" min="0" max="10000" value="0" step="1" />
         </div>
         <div class="transport-controls">
@@ -323,11 +320,11 @@
         <div class="kbd-hint"><kbd>Space</kbd><kbd>K</kbd> Play/Pause</div>
         <div class="kbd-hint"><kbd>[</kbd> Set Start</div>
         <div class="kbd-hint"><kbd>]</kbd> Set End</div>
+        <div class="kbd-hint"><kbd>\</kbd> Set CL2</div>
         <div class="kbd-hint"><kbd>Enter</kbd> Add to queue</div>
       </div>
     </div>
 
-    <!-- CLIP QUEUE -->
     <div class="clip-queue">
       <div class="cq-header">
         <h3>Clip Queue</h3>
@@ -347,19 +344,18 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ─── State ────────────────────────────────────────────────────────────────────
 const S = {
   loaded: false,
   fps: 60,
   startFrame: null,
   endFrame: null,
-  clips: [],         // { id, team, pos, timeToCL, filename, clipStart, clipDur, sourceJobId, clipJobId, status, blob }
-  sourceJobId: null, // yt-dlp download job id
+  endFrame2: null,
+  clips: [],
+  sourceJobId: null,
   isLocalFile: false,
   localObjectUrl: null,
 };
 
-// ─── DOM ──────────────────────────────────────────────────────────────────────
 const video       = document.getElementById('videoPlayer');
 const placeholder = document.getElementById('placeholder');
 const transport   = document.getElementById('transport');
@@ -374,8 +370,11 @@ const curTime     = document.getElementById('curTime');
 const dispStart   = document.getElementById('dispStart');
 const dispEnd     = document.getElementById('dispEnd');
 const dispTime    = document.getElementById('dispTime');
+const dispTime2   = document.getElementById('dispTime2');
+const end2Marker  = document.getElementById('end2Marker');
 const setStartBtn = document.getElementById('setStartBtn');
 const setEndBtn   = document.getElementById('setEndBtn');
+const setEnd2Btn  = document.getElementById('setEnd2Btn');
 const addClipBtn  = document.getElementById('addClipBtn');
 const clipList    = document.getElementById('clipList');
 const clipCount   = document.getElementById('clipCount');
@@ -390,7 +389,6 @@ const videoInfoBar= document.getElementById('videoInfoBar');
 const viTitle     = document.getElementById('viTitle');
 const viMeta      = document.getElementById('viMeta');
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
 function toast(msg, type='', dur=3500) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -424,6 +422,10 @@ function updateDisplay() {
     endMarker.style.left = (frameToSec(S.endFrame) / video.duration * 100) + '%';
     endMarker.style.display = 'block';
   }
+  if (S.endFrame2 !== null && video.duration) {
+    end2Marker.style.left = (frameToSec(S.endFrame2) / video.duration * 100) + '%';
+    end2Marker.style.display = 'block';
+  }
 }
 
 function recalc() {
@@ -435,9 +437,13 @@ function recalc() {
     dispTime.textContent = '—';
     addClipBtn.disabled = true;
   }
+  if (S.startFrame !== null && S.endFrame2 !== null && S.endFrame2 > S.startFrame) {
+    dispTime2.textContent = ((S.endFrame2 - S.startFrame) / S.fps).toFixed(4) + 's';
+  } else {
+    dispTime2.textContent = '—';
+  }
 }
 
-// ─── Load video into player ───────────────────────────────────────────────────
 function loadVideoSrc(src) {
   video.src = src;
   video.load();
@@ -449,6 +455,8 @@ function loadVideoSrc(src) {
     transport.style.display = 'block';
     setStartBtn.disabled = false;
     setEndBtn.disabled   = false;
+    setEnd2Btn.disabled  = false;
+    setEnd2Btn.style.opacity = '1';
     totFrame.textContent = Math.round(video.duration * S.fps);
     setStatus('READY', 'ready');
     toast('Video loaded — use , and . to scrub frames', 'success');
@@ -460,7 +468,6 @@ function loadVideoSrc(src) {
   };
 }
 
-// ─── YouTube download via backend ─────────────────────────────────────────────
 document.getElementById('loadYtBtn').addEventListener('click', async () => {
   const url = document.getElementById('ytUrl').value.trim();
   if (!url) { toast('Paste a YouTube URL first.', 'error'); return; }
@@ -468,7 +475,6 @@ document.getElementById('loadYtBtn').addEventListener('click', async () => {
   document.getElementById('loadYtBtn').disabled = true;
   setStatus('FETCHING INFO...', 'busy');
 
-  // First get info (title, fps)
   try {
     const infoRes = await fetch('/api/info?url=' + encodeURIComponent(url));
     if (!infoRes.ok) throw new Error('Info failed');
@@ -504,7 +510,6 @@ document.getElementById('loadYtBtn').addEventListener('click', async () => {
       dlBar.style.width  = j.progress + '%';
     });
     dlProgress.classList.remove('show');
-    // Load into player via streaming endpoint
     loadVideoSrc('/api/video/' + jobId);
   } catch(e) {
     dlProgress.classList.remove('show');
@@ -515,7 +520,6 @@ document.getElementById('loadYtBtn').addEventListener('click', async () => {
   }
 });
 
-// ─── Local file ───────────────────────────────────────────────────────────────
 document.getElementById('localFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -530,7 +534,6 @@ document.getElementById('localFile').addEventListener('change', (e) => {
   loadVideoSrc(S.localObjectUrl);
 });
 
-// ─── Poll job ─────────────────────────────────────────────────────────────────
 function pollJob(jobId, onProgress) {
   return new Promise((resolve, reject) => {
     const iv = setInterval(async () => {
@@ -545,13 +548,11 @@ function pollJob(jobId, onProgress) {
   });
 }
 
-// ─── FPS ──────────────────────────────────────────────────────────────────────
 fpsInput.addEventListener('change', () => {
   S.fps = parseFloat(fpsInput.value) || 60;
   updateDisplay(); recalc();
 });
 
-// ─── Seekbar ──────────────────────────────────────────────────────────────────
 seekbar.addEventListener('input', () => {
   if (!S.loaded) return;
   video.currentTime = (seekbar.value / 10000) * video.duration;
@@ -560,7 +561,6 @@ video.addEventListener('timeupdate', updateDisplay);
 video.addEventListener('play',  () => playPauseBtn.textContent = '⏸ PAUSE');
 video.addEventListener('pause', () => playPauseBtn.textContent = '▶ PLAY');
 
-// ─── Transport controls ───────────────────────────────────────────────────────
 function togglePlay() { if (!S.loaded) return; video.paused ? video.play() : video.pause(); }
 function stepFrame(d) { if (!S.loaded) return; video.pause(); video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + d / S.fps)); }
 
@@ -568,7 +568,6 @@ playPauseBtn.addEventListener('click', togglePlay);
 document.getElementById('prevFrameBtn').addEventListener('click', () => stepFrame(-1));
 document.getElementById('nextFrameBtn').addEventListener('click', () => stepFrame(1));
 
-// ─── Keyboard ─────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
   if (e.key === ',')     { e.preventDefault(); stepFrame(-1); }
@@ -576,10 +575,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); togglePlay(); }
   if (e.key === '[')     { e.preventDefault(); setStart(); }
   if (e.key === ']')     { e.preventDefault(); setEnd(); }
+  if (e.key === '\\')    { e.preventDefault(); setEnd2(); }
   if (e.key === 'Enter') { e.preventDefault(); if (!addClipBtn.disabled) addClip(); }
 });
 
-// ─── Markers ──────────────────────────────────────────────────────────────────
 function setStart() {
   if (!S.loaded) return;
   S.startFrame = frame();
@@ -594,18 +593,24 @@ function setEnd() {
   recalc(); updateDisplay();
   toast('End: frame ' + S.endFrame + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
 }
+function setEnd2() {
+  if (!S.loaded) return;
+  S.endFrame2 = frame();
+  recalc(); updateDisplay();
+  toast('CL2: frame ' + S.endFrame2 + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
+}
 
 setStartBtn.addEventListener('click', setStart);
 setEndBtn.addEventListener('click', setEnd);
+setEnd2Btn.addEventListener('click', setEnd2);
 document.getElementById('clearMarkers').addEventListener('click', () => {
-  S.startFrame = S.endFrame = null;
-  dispStart.textContent = dispEnd.textContent = dispTime.textContent = '—';
-  startMarker.style.display = endMarker.style.display = 'none';
+  S.startFrame = S.endFrame = S.endFrame2 = null;
+  dispStart.textContent = dispEnd.textContent = dispTime.textContent = dispTime2.textContent = '—';
+  startMarker.style.display = endMarker.style.display = end2Marker.style.display = 'none';
   addClipBtn.disabled = true;
   toast('Markers cleared.');
 });
 
-// ─── Add to queue ─────────────────────────────────────────────────────────────
 addClipBtn.addEventListener('click', addClip);
 function addClip() {
   const team = document.getElementById('teamNum').value.trim();
@@ -615,6 +620,9 @@ function addClip() {
   if (S.endFrame <= S.startFrame) { toast('End frame must be after start frame.', 'error'); return; }
 
   const timeToCL  = ((S.endFrame - S.startFrame) / S.fps).toFixed(4);
+  const timeToCL2 = (S.endFrame2 !== null && S.endFrame2 > S.startFrame)
+    ? ((S.endFrame2 - S.startFrame) / S.fps).toFixed(4)
+    : null;
   const preRoll   = parseFloat(document.getElementById('preRoll').value) || 0.5;
   const clipDur   = parseFloat(document.getElementById('clipDur').value) || 22.5;
   const clipStart = Math.max(0, frameToSec(S.startFrame) - preRoll);
@@ -622,9 +630,9 @@ function addClip() {
 
   S.clips.push({
     id: Date.now(),
-    team, pos, timeToCL, filename,
+    team, pos, timeToCL, timeToCL2, filename,
     clipStart, clipDur,
-    startFrame: S.startFrame, endFrame: S.endFrame,
+    startFrame: S.startFrame, endFrame: S.endFrame, endFrame2: S.endFrame2,
     sourceJobId: S.sourceJobId,
     isLocalFile: S.isLocalFile,
     localSrc: S.localObjectUrl,
@@ -632,11 +640,11 @@ function addClip() {
     clipJobId: null,
   });
 
+  saveQueue();
   renderQueue();
   toast('Added: ' + filename, 'success');
 }
 
-// ─── Render clip queue ────────────────────────────────────────────────────────
 function renderQueue() {
   clipCount.textContent = S.clips.length;
   processAllBtn.disabled = S.clips.length === 0;
@@ -651,9 +659,13 @@ function renderQueue() {
     const div = document.createElement('div');
     div.className = 'clip-item';
     div.id = 'clip-' + clip.id;
+    const expiredWarn = clip._localExpired
+      ? `<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--accent);margin-bottom:4px;">⚠ Re-select source file to process</div>`
+      : '';
     div.innerHTML = `
       <div class="ci-name">${clip.filename}</div>
-      <div class="ci-meta">Frames ${clip.startFrame}→${clip.endFrame} · ${clip.timeToCL}s to CL</div>
+      <div class="ci-meta">Frames ${clip.startFrame}→${clip.endFrame} · ${clip.timeToCL}s to CL${clip.timeToCL2 ? ' · ' + clip.timeToCL2 + 's CL2' : ''}</div>
+      ${expiredWarn}
       <div class="ci-prog-wrap" id="prog-wrap-${clip.id}">
         <div class="ci-prog-fill" id="prog-fill-${clip.id}" style="width:0%"></div>
       </div>
@@ -663,7 +675,7 @@ function renderQueue() {
       <div class="ci-actions">
         <button class="ci-dl" id="ci-dl-${clip.id}"
           onclick="downloadClip(${clip.id})"
-          ${clip.status !== 'ready' ? 'disabled' : ''}>
+          ${clip.status === 'processing' ? 'disabled' : ''}>
           ${clip.status === 'queued' ? '⚙ PROCESS' : clip.status === 'ready' ? '⬇ DL' : clip.status === 'processing' ? '...' : '⚙ RETRY'}
         </button>
         <button class="ci-del" onclick="removeClip(${clip.id})">✕</button>
@@ -695,27 +707,39 @@ function updateClipUI(clip) {
 
 function removeClip(id) {
   S.clips = S.clips.filter(c => c.id !== id);
+  saveQueue();
   renderQueue();
 }
 
-// ─── Process + download a clip ────────────────────────────────────────────────
+function saveQueue() {
+  const toSave = S.clips.map(c => {
+    const copy = { ...c };
+    delete copy.localSrc;
+    return copy;
+  });
+  try { localStorage.setItem('frc_clipper_queue', JSON.stringify(toSave)); } catch {}
+}
+
+function loadQueueFromStorage() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('frc_clipper_queue') || '[]');
+    S.clips = saved.map(c => {
+      if (c.isLocalFile && c.status !== 'ready') {
+        c.status = 'error';
+        c._localExpired = true;
+      }
+      return c;
+    });
+    renderQueue();
+  } catch { S.clips = []; }
+}
+
 async function downloadClip(id) {
   const clip = S.clips.find(c => c.id === id);
   if (!clip) return;
 
-  // If already ready, just download
   if (clip.status === 'ready' && clip.clipJobId) {
     window.location = '/api/download-clip/' + encodeURIComponent(clip.filename);
-    return;
-  }
-
-  if (clip.isLocalFile) {
-    toast('Local file clipping requires the server to have access to the file. Use yt-dlp method for server-side clipping.', 'error', 5000);
-    return;
-  }
-
-  if (!clip.sourceJobId) {
-    toast('No server-side video source. Re-fetch via YouTube URL to use server clipping.', 'error', 5000);
     return;
   }
 
@@ -723,6 +747,58 @@ async function downloadClip(id) {
   clip.progress = 0;
   updateClipUI(clip);
 
+  if (clip.isLocalFile) {
+    if (!clip.localSrc) {
+      clip.status = 'error';
+      clip._localExpired = true;
+      updateClipUI(clip);
+      saveQueue();
+      toast('Local source no longer available. Re-add the clip.', 'error', 5000);
+      return;
+    }
+    setStatus('UPLOADING...', 'busy');
+    try {
+      const blobResp = await fetch(clip.localSrc);
+      const blob = await blobResp.blob();
+      const uploadResult = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload-local', true);
+        xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
+        xhr.setRequestHeader('x-filename', 'upload.mp4');
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { reject(new Error('Upload response invalid')); }
+          } else { reject(new Error('Upload failed: HTTP ' + xhr.status)); }
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            clip.progress = Math.round(e.loaded / e.total * 40);
+            updateClipUI(clip);
+          }
+        };
+        xhr.send(blob);
+      });
+      clip.sourceJobId = uploadResult.jobId;
+    } catch(e) {
+      clip.status = 'error';
+      updateClipUI(clip);
+      saveQueue();
+      toast('Upload failed: ' + e.message, 'error');
+      setStatus('READY', 'ready');
+      return;
+    }
+  }
+
+  if (!clip.sourceJobId) {
+    clip.status = 'error';
+    updateClipUI(clip);
+    toast('No server-side video source. Re-fetch via YouTube URL.', 'error', 5000);
+    return;
+  }
+
+  setStatus('CLIPPING...', 'busy');
   try {
     const res = await fetch('/api/clip', {
       method: 'POST',
@@ -737,24 +813,28 @@ async function downloadClip(id) {
     const { jobId: clipJobId } = await res.json();
     clip.clipJobId = clipJobId;
 
+    const baseProgress  = clip.isLocalFile ? 40 : 0;
+    const progressScale = clip.isLocalFile ? 0.6 : 1;
     await pollJob(clipJobId, (j) => {
-      clip.progress = j.progress;
+      clip.progress = baseProgress + Math.round(j.progress * progressScale);
       updateClipUI(clip);
     });
 
     clip.status = 'ready';
     updateClipUI(clip);
+    saveQueue();
+    setStatus('READY', 'ready');
     toast('Ready: ' + clip.filename, 'success');
-    // Auto-download
     window.location = '/api/download-clip/' + encodeURIComponent(clip.filename);
   } catch(e) {
     clip.status = 'error';
     updateClipUI(clip);
+    saveQueue();
     toast('Clip failed: ' + e.message, 'error');
+    setStatus('READY', 'ready');
   }
 }
 
-// ─── Process all ──────────────────────────────────────────────────────────────
 processAllBtn.addEventListener('click', async () => {
   processAllBtn.disabled = true;
   for (const clip of S.clips) {
@@ -770,7 +850,8 @@ processAllBtn.addEventListener('click', async () => {
   toast('All clips processed!', 'success');
 });
 
-// ─── Startup check ────────────────────────────────────────────────────────────
+loadQueueFromStorage();
+
 (async () => {
   try {
     const r = await fetch('/api/check');
@@ -794,9 +875,7 @@ processAllBtn.addEventListener('click', async () => {
     } else {
       setStatus('READY', 'ready');
     }
-  } catch(e) {
-    // server not running or check failed
-  }
+  } catch(e) {}
 })();
 </script>
 </body>

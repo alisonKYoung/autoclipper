@@ -1,845 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1678 Clip Compare</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap');
-
-  :root {
-    --bg:       #0a0c10;
-    --surface:  #111318;
-    --surface2: #181b22;
-    --border:   #2a2f3d;
-    --accent:   #e8b000;
-    --accent2:  #ff4d1a;
-    --blue:     #1a8cff;
-    --green:    #00e676;
-    --text:     #e8ecf4;
-    --muted:    #7a8099;
-    --red:      #ff3d3d;
-    --purple:   #b57bff;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Exo 2', sans-serif;
-    min-height: 100vh;
-    overflow: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(232,176,0,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(232,176,0,0.025) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none; z-index: 0;
-  }
-
-  .app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
-
-  /* ── Header ── */
-  header {
-    display: flex; align-items: center; gap: 14px;
-    padding: 10px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .logo { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:20px; color:var(--accent); letter-spacing:2px; text-transform:uppercase; }
-  .logo span { color:var(--text); }
-  .tag { background:var(--purple); color:#000; font-family:'Share Tech Mono',monospace; font-size:10px; font-weight:700; padding:2px 8px; border-radius:2px; letter-spacing:1px; }
-  .nav-link {
-    margin-left: auto;
-    font-family:'Share Tech Mono',monospace; font-size:11px;
-    color: var(--muted); text-decoration: none; letter-spacing:1px;
-    padding: 4px 10px; border: 1px solid var(--border); border-radius: 3px;
-    transition: all 0.15s;
-  }
-  .nav-link:hover { color: var(--accent); border-color: var(--accent); }
-  .status-bar { display:flex; align-items:center; gap:8px; font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--muted); }
-  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--muted); transition:all 0.3s; }
-  .status-dot.ready { background:var(--green); box-shadow:0 0 8px var(--green); }
-  .status-dot.busy  { background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 1s infinite; }
-  .status-dot.error { background:var(--red); box-shadow:0 0 8px var(--red); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-  /* ── Body layout ── */
-  .body { display: flex; flex: 1; overflow: hidden; }
-
-  /* ── Left panel ── */
-  .left-panel {
-    width: 280px; flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .panel-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
-  .panel-section h3 {
-    font-family:'Rajdhani',sans-serif; font-size:10px; font-weight:600;
-    letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px;
-  }
-
-  label { display:block; font-size:10px; color:var(--muted); margin-bottom:3px; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
-
-  input[type="text"], input[type="number"], select {
-    width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
-    padding:7px 9px; border-radius:4px; font-family:'Share Tech Mono',monospace; font-size:12px;
-    margin-bottom:8px; outline:none; transition:border-color 0.2s;
-  }
-  input:focus, select:focus { border-color:var(--accent); }
-  select option { background:var(--surface2); }
-
-  .btn {
-    display:flex; align-items:center; justify-content:center; gap:7px;
-    width:100%; padding:8px 14px; border:none; border-radius:4px;
-    font-family:'Rajdhani',sans-serif; font-weight:600; font-size:13px;
-    letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:all 0.15s;
-    margin-bottom:6px;
-  }
-  .btn:disabled { opacity:0.35; cursor:not-allowed; }
-  .btn-primary   { background:var(--accent); color:#000; }
-  .btn-primary:hover:not(:disabled)   { background:#ffca2c; }
-  .btn-secondary { background:transparent; color:var(--text); border:1px solid var(--border); }
-  .btn-secondary:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
-  .btn-purple    { background:var(--purple); color:#000; }
-  .btn-purple:hover:not(:disabled)    { background:#cba3ff; }
-
-  /* Clip selector cards */
-  .slot-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 10px;
-    position: relative;
-  }
-  .slot-card.slot-a { border-left: 3px solid var(--blue); }
-  .slot-card.slot-b { border-left: 3px solid var(--accent2); }
-  .slot-label {
-    font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px;
-    text-transform:uppercase; margin-bottom:8px;
-  }
-  .slot-a .slot-label { color: var(--blue); }
-  .slot-b .slot-label { color: var(--accent2); }
-  .slot-name {
-    font-family:'Share Tech Mono',monospace; font-size:10px;
-    color: var(--accent); word-break:break-all; margin-bottom:6px;
-    min-height: 14px;
-  }
-  .slot-empty { color: var(--muted); font-style: italic; }
-
-  .source-tabs {
-    display: flex; gap: 4px; margin-bottom: 8px;
-  }
-  .stab {
-    flex: 1; padding: 4px 6px; border: 1px solid var(--border);
-    border-radius: 3px; background: transparent;
-    font-family:'Share Tech Mono',monospace; font-size:9px;
-    letter-spacing:1px; color: var(--muted); cursor:pointer;
-    text-transform:uppercase; transition: all 0.15s;
-  }
-  .stab.active { background:var(--surface); color:var(--text); border-color:var(--accent); }
-
-  .source-panel { display: none; }
-  .source-panel.active { display: block; }
-
-  /* Queue picker */
-  .queue-picker {
-    max-height: 120px; overflow-y:auto;
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: 4px; margin-bottom:6px;
-  }
-  .qp-item {
-    padding: 6px 9px; font-family:'Share Tech Mono',monospace; font-size:9px;
-    color: var(--muted); cursor:pointer; border-bottom:1px solid var(--border);
-    transition: all 0.15s; word-break:break-all;
-  }
-  .qp-item:last-child { border-bottom:none; }
-  .qp-item:hover { background:var(--surface2); color:var(--text); }
-  .qp-item.selected { background:rgba(232,176,0,0.1); color:var(--accent); }
-  .qp-empty { padding:10px; text-align:center; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); }
-
-  .file-input-btn {
-    display:block; width:100%; padding:6px; background:var(--surface2); border:1px dashed var(--border);
-    border-radius:4px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted);
-    text-align:center; cursor:pointer; transition:all 0.15s; margin-bottom:6px;
-  }
-  .file-input-btn:hover { border-color:var(--accent); color:var(--accent); }
-
-  /* Google Drive section */
-  .gdrive-info { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); margin-bottom:6px; line-height:1.5; }
-  .gdrive-folder-row { display:flex; gap:5px; margin-bottom:6px; }
-  .gdrive-folder-row input { flex:1; margin-bottom:0; font-size:10px; }
-  .gdrive-folder-row button { background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:0 10px; cursor:pointer; font-size:12px; transition:all 0.15s; }
-  .gdrive-folder-row button:hover { border-color:var(--accent); }
-  .gdrive-file-list { max-height:100px; overflow-y:auto; background:var(--bg); border:1px solid var(--border); border-radius:4px; margin-bottom:6px; }
-  .gd-item { padding:5px 9px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); cursor:pointer; border-bottom:1px solid rgba(42,47,61,0.5); transition:all 0.15s; word-break:break-all; display:flex; align-items:center; gap:6px; }
-  .gd-item:hover { background:var(--surface2); color:var(--text); }
-  .gd-item.selected { background:rgba(232,176,0,0.1); color:var(--accent); }
-  .gd-icon { opacity:0.6; flex-shrink:0; }
-
-  /* Offset */
-  .offset-row { display:flex; align-items:center; gap:8px; }
-  .offset-row input { flex:1; margin-bottom:0; }
-  .offset-label { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--muted); white-space:nowrap; }
-
-  /* ── Video area ── */
-  .video-area {
-    flex: 1; display:flex; flex-direction:column; background:#000; overflow:hidden;
-  }
-
-  .dual-video {
-    flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative;
-  }
-
-  .video-slot {
-    flex: 1; position: relative; display:flex; flex-direction:column; overflow:hidden;
-    border-bottom: 2px solid var(--border);
-  }
-  .video-slot:last-child { border-bottom: none; }
-
-  .video-slot video {
-    width:100%; height:100%; object-fit:contain; background:#000; display:block;
-  }
-
-  .slot-overlay {
-    position:absolute; top:0; left:0; right:0;
-    background:linear-gradient(to bottom,rgba(0,0,0,0.75),transparent);
-    padding:8px 12px; pointer-events:none;
-    display:flex; align-items:flex-start; justify-content:space-between;
-  }
-  .slot-badge {
-    font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:2px;
-    padding:2px 8px; border-radius:2px; font-weight:700;
-  }
-  .slot-badge.a { background:var(--blue); color:#fff; }
-  .slot-badge.b { background:var(--accent2); color:#fff; }
-  .slot-title-text {
-    font-family:'Rajdhani',sans-serif; font-size:12px; color:#fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8); max-width: 70%;
-    text-align:right;
-  }
-
-  /* Marker overlays on timeline */
-  .slot-timeline {
-    position:absolute; bottom:0; left:0; right:0; height:4px;
-    background:rgba(0,0,0,0.5);
-  }
-  .slot-progress-fill {
-    height:100%; background:rgba(255,255,255,0.35);
-    transition:width 0.1s linear;
-  }
-  .tl-marker {
-    position:absolute; top:-3px; width:2px; height:10px; border-radius:1px;
-    transform: translateX(-50%);
-  }
-  .tl-marker.start-m { background:var(--blue); }
-  .tl-marker.end-m   { background:var(--accent2); }
-  .tl-marker.offset-m { background:var(--green); }
-
-  /* ── Transport ── */
-  .transport {
-    background:var(--surface); border-top:1px solid var(--border);
-    padding:8px 14px; flex-shrink:0;
-  }
-
-  .seekbar-wrap {
-    position:relative; height:6px; background:var(--surface2);
-    border-radius:3px; margin-bottom:8px; cursor:pointer;
-  }
-  #seekbar {
-    width:100%; height:100%; -webkit-appearance:none; appearance:none;
-    background:transparent; cursor:pointer; position:absolute; top:0; left:0;
-  }
-  #seekbar::-webkit-slider-thumb {
-    -webkit-appearance:none; width:13px; height:13px;
-    background:var(--accent); border-radius:50%; cursor:pointer;
-  }
-  .seekbar-fill { position:absolute; top:0; left:0; height:100%; background:var(--accent); border-radius:3px; pointer-events:none; }
-  .marker-pin {
-    position:absolute; top:-3px; width:3px; height:12px; border-radius:1px;
-    pointer-events:none; transform:translateX(-50%); display:none;
-  }
-  .marker-pin.start-pin { background:var(--blue); }
-  .marker-pin.end-pin   { background:var(--accent2); }
-  .marker-pin.offset-pin { background:var(--green); }
-
-  .transport-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .tc-btn {
-    background:var(--surface2); border:1px solid var(--border); color:var(--text);
-    padding:5px 11px; border-radius:4px; font-family:'Share Tech Mono',monospace;
-    font-size:11px; cursor:pointer; transition:all 0.15s;
-  }
-  .tc-btn:hover { border-color:var(--accent); color:var(--accent); }
-  .tc-btn:disabled { opacity:0.35; cursor:not-allowed; }
-  .play-btn { background:var(--accent) !important; color:#000 !important; border-color:var(--accent) !important; font-weight:bold; padding:5px 18px !important; }
-  .sync-btn { background:rgba(181,123,255,0.15); border-color:var(--purple); color:var(--purple); }
-  .sync-btn.active { background:var(--purple); color:#000; }
-
-  .time-display {
-    font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--muted);
-    margin-left:auto; display:flex; gap:14px; align-items:center;
-  }
-  .time-display .ta { color:var(--blue); }
-  .time-display .tb { color:var(--accent2); }
-  .time-display .tdiff { color:var(--green); }
-  .time-display span { color:var(--text); }
-
-  /* Info readouts */
-  .markers-bar {
-    display:flex; gap:8px; padding:5px 14px;
-    background:var(--surface); border-top:1px solid var(--border);
-    flex-shrink:0; flex-wrap:wrap;
-  }
-  .mbar-chip {
-    display:flex; align-items:center; gap:5px;
-    background:var(--surface2); border:1px solid var(--border);
-    border-radius:3px; padding:3px 8px;
-  }
-  .mbar-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-  .mbar-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; }
-  .mbar-value { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text); }
-
-  /* kbd hints */
-  .kbd-hints { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:4px 14px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0; }
-  .kbd-hint { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--muted); }
-  kbd { background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:1px 5px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text); }
-
-  /* Toast */
-  .toast { position:fixed; bottom:20px; right:20px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:10px 18px; font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text); z-index:200; transform:translateY(60px); opacity:0; transition:all 0.3s; max-width:320px; }
-  .toast.show    { transform:translateY(0); opacity:1; }
-  .toast.success { border-color:var(--green); color:var(--green); }
-  .toast.error   { border-color:var(--red); color:var(--red); }
-  .toast.info    { border-color:var(--blue); color:var(--blue); }
-
-  ::-webkit-scrollbar { width:3px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
-
-  /* Placeholder */
-  .video-placeholder {
-    position:absolute; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:10px; color:var(--muted);
-    background:#000;
-  }
-  .video-placeholder svg { opacity:0.15; }
-  .video-placeholder p { font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:1px; }
-
-  /* Google auth button */
-  .google-btn {
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:4px;
-    background:var(--surface2); color:var(--text); cursor:pointer;
-    font-family:'Exo 2',sans-serif; font-size:12px; transition:all 0.15s;
-    margin-bottom:6px;
-  }
-  .google-btn:hover { border-color:var(--accent); }
-  .google-btn svg { flex-shrink:0; }
-
-  .connected-badge {
-    display:inline-flex; align-items:center; gap:5px;
-    background:rgba(0,230,118,0.1); border:1px solid rgba(0,230,118,0.3);
-    color:var(--green); border-radius:3px; padding:2px 8px;
-    font-family:'Share Tech Mono',monospace; font-size:9px; margin-bottom:6px;
-  }
-  .connected-badge::before { content:'●'; font-size:7px; }
-
-  .divider {
-    display:flex; align-items:center; gap:8px;
-    color:var(--muted); font-size:10px; font-family:'Share Tech Mono',monospace;
-    margin-bottom:8px;
-  }
-  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
-
-  /* Loading bar in slot */
-  .slot-loading {
-    position:absolute; inset:0; background:rgba(0,0,0,0.8);
-    display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
-  }
-  .slot-loading.show { display:flex; }
-  .slot-loading-text { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--muted); }
-  .slot-loading-bar { width:160px; height:2px; background:var(--border); border-radius:1px; }
-  .slot-loading-fill { height:100%; width:0%; background:var(--accent); border-radius:1px; transition:width 0.3s; }
-</style>
-</head>
-<body>
-<div class="app">
-
-  <!-- HEADER -->
-  <header>
-    <div class="logo">1678 <span>Clip Compare</span></div>
-    <div class="tag">COMPARE</div>
-    <div class="status-bar" style="margin-left:12px;">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">IDLE</span>
-    </div>
-    <a class="nav-link" href="/">← CLIPPER</a>
-  </header>
-
-  <div class="body">
-
-    <!-- LEFT PANEL -->
-    <div class="left-panel">
-
-      <!-- Slot A -->
-      <div class="panel-section">
-        <h3>Clip A — Top</h3>
-        <div class="slot-card slot-a">
-          <div class="slot-label">SLOT A</div>
-          <div class="slot-name slot-empty" id="slotAName">No clip selected</div>
-          <div class="source-tabs">
-            <button class="stab active" data-slot="a" data-src="queue">QUEUE</button>
-            <button class="stab" data-slot="a" data-src="local">LOCAL</button>
-            <button class="stab" data-slot="a" data-src="gdrive">DRIVE</button>
-          </div>
-          <!-- Queue source -->
-          <div class="source-panel active" id="srcA-queue">
-            <div class="queue-picker" id="qpA">
-              <div class="qp-empty">Loading queue...</div>
-            </div>
-          </div>
-          <!-- Local source -->
-          <div class="source-panel" id="srcA-local">
-            <label class="file-input-btn" for="fileA">📂 Choose video file...</label>
-            <input type="file" id="fileA" accept="video/*" style="display:none">
-          </div>
-          <!-- Google Drive source -->
-          <div class="source-panel" id="srcA-gdrive">
-            <div id="gdriveAuthA">
-              <button class="google-btn" id="gdriveSignInA">
-                <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                Connect Google Drive
-              </button>
-            </div>
-            <div id="gdriveConnectedA" style="display:none">
-              <div class="connected-badge">Google Drive Connected</div>
-              <div class="gdrive-folder-row">
-                <input type="text" id="gdriveFolderA" placeholder="Folder name (e.g. clips)" />
-                <button id="gdriveBrowseA" title="Browse">🔍</button>
-              </div>
-              <div class="gdrive-file-list" id="gdriveListA">
-                <div class="qp-empty">Enter a folder name and browse</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Slot B -->
-      <div class="panel-section">
-        <h3>Clip B — Bottom</h3>
-        <div class="slot-card slot-b">
-          <div class="slot-label">SLOT B</div>
-          <div class="slot-name slot-empty" id="slotBName">No clip selected</div>
-          <div class="source-tabs">
-            <button class="stab active" data-slot="b" data-src="queue">QUEUE</button>
-            <button class="stab" data-slot="b" data-src="local">LOCAL</button>
-            <button class="stab" data-slot="b" data-src="gdrive">DRIVE</button>
-          </div>
-          <div class="source-panel active" id="srcB-queue">
-            <div class="queue-picker" id="qpB">
-              <div class="qp-empty">Loading queue...</div>
-            </div>
-          </div>
-          <div class="source-panel" id="srcB-local">
-            <label class="file-input-btn" for="fileB">📂 Choose video file...</label>
-            <input type="file" id="fileB" accept="video/*" style="display:none">
-          </div>
-          <div class="source-panel" id="srcB-gdrive">
-            <div id="gdriveAuthB">
-              <button class="google-btn" id="gdriveSignInB">
-                <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                Connect Google Drive
-              </button>
-            </div>
-            <div id="gdriveConnectedB" style="display:none">
-              <div class="connected-badge">Google Drive Connected</div>
-              <div class="gdrive-folder-row">
-                <input type="text" id="gdriveFolderB" placeholder="Folder name (e.g. clips)" />
-                <button id="gdriveBrowseB" title="Browse">🔍</button>
-              </div>
-              <div class="gdrive-file-list" id="gdriveListB">
-                <div class="qp-empty">Enter a folder name and browse</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sync Settings -->
-      <div class="panel-section">
-        <h3>Sync Settings</h3>
-        <label>STARTING OFFSET (seconds)</label>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <input type="number" id="offsetInput" value="0.5" step="0.1" min="0" style="margin-bottom:0;flex:1;" />
-          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;">B delayed by</div>
-        </div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:8px;">
-          Clip B starts this many seconds after Clip A when using sync play. Set 0 to start simultaneously.
-        </div>
-        <button class="btn btn-purple" id="loadBothBtn" disabled>▶ LOAD COMPARISON</button>
-      </div>
-
-    </div>
-
-    <!-- VIDEO AREA -->
-    <div class="video-area">
-      <div class="dual-video" id="dualVideo">
-
-        <!-- Slot A -->
-        <div class="video-slot" id="videoSlotA">
-          <div class="video-placeholder" id="placeholderA">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <p>SELECT CLIP A</p>
-          </div>
-          <video id="videoA" tabindex="-1" preload="auto"></video>
-          <div class="slot-overlay">
-            <div class="slot-badge a">A</div>
-            <div class="slot-title-text" id="titleA"></div>
-          </div>
-          <div class="slot-loading" id="loadingA">
-            <div class="slot-loading-text" id="loadingMsgA">Loading...</div>
-            <div class="slot-loading-bar"><div class="slot-loading-fill" id="loadingBarA"></div></div>
-          </div>
-          <div class="slot-timeline">
-            <div class="slot-progress-fill" id="progressA" style="width:0%"></div>
-            <div class="tl-marker start-m" id="tlStartA" style="display:none"></div>
-            <div class="tl-marker end-m"   id="tlEndA"   style="display:none"></div>
-          </div>
-        </div>
-
-        <!-- Slot B -->
-        <div class="video-slot" id="videoSlotB">
-          <div class="video-placeholder" id="placeholderB">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <p>SELECT CLIP B</p>
-          </div>
-          <video id="videoB" tabindex="-1" preload="auto"></video>
-          <div class="slot-overlay">
-            <div class="slot-badge b">B</div>
-            <div class="slot-title-text" id="titleB"></div>
-          </div>
-          <div class="slot-loading" id="loadingB">
-            <div class="slot-loading-text" id="loadingMsgB">Loading...</div>
-            <div class="slot-loading-bar"><div class="slot-loading-fill" id="loadingBarB"></div></div>
-          </div>
-          <div class="slot-timeline">
-            <div class="slot-progress-fill" id="progressB" style="width:0%"></div>
-            <div class="tl-marker start-m" id="tlStartB" style="display:none"></div>
-            <div class="tl-marker end-m"   id="tlEndB"   style="display:none"></div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Markers info bar -->
-      <div class="markers-bar" id="markersBar" style="display:none">
-        <div class="mbar-chip">
-          <div class="mbar-dot" style="background:var(--blue)"></div>
-          <div class="mbar-label">A START</div>
-          <div class="mbar-value" id="mbarAStart">—</div>
-        </div>
-        <div class="mbar-chip">
-          <div class="mbar-dot" style="background:var(--accent2)"></div>
-          <div class="mbar-label">A END</div>
-          <div class="mbar-value" id="mbarAEnd">—</div>
-        </div>
-        <div class="mbar-chip">
-          <div class="mbar-dot" style="background:var(--accent)"></div>
-          <div class="mbar-label">A TIME-TO-CL</div>
-          <div class="mbar-value" id="mbarATime">—</div>
-        </div>
-        <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px;"></div>
-        <div class="mbar-chip">
-          <div class="mbar-dot" style="background:var(--blue)"></div>
-          <div class="mbar-label">B START</div>
-          <div class="mbar-value" id="mbarBStart">—</div>
-        </div>
-        <div class="mbar-chip">
-          <div class="mbar-dot" style="background:var(--accent2)"></div>
-          <div class="mbar-label">B END</div>
-          <div class="mbar-value" id="mbarBEnd">—</div>
-        </div>
-        <div class="mbar-chip">
-          <div class="mbar-dot" style="background:var(--accent)"></div>
-          <div class="mbar-label">B TIME-TO-CL</div>
-          <div class="mbar-value" id="mbarBTime">—</div>
-        </div>
-      </div>
-
-      <!-- Transport -->
-      <div class="transport" id="transport">
-        <!-- Seekbar for A (primary) -->
-        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">CLIP A POSITION</div>
-        <div class="seekbar-wrap" id="seekbarWrap">
-          <div class="seekbar-fill" id="seekFill"></div>
-          <div class="marker-pin start-pin" id="pinStartA"></div>
-          <div class="marker-pin end-pin"   id="pinEndA"></div>
-          <input type="range" id="seekbar" min="0" max="10000" value="0" step="1" />
-        </div>
-        <div class="transport-controls">
-          <button class="tc-btn" id="prevFrameBtn">◀ ,</button>
-          <button class="tc-btn play-btn" id="playPauseBtn">▶ PLAY BOTH</button>
-          <button class="tc-btn" id="nextFrameBtn">. ▶</button>
-          <button class="tc-btn sync-btn active" id="syncBtn" title="Sync playback">⇄ SYNC</button>
-          <button class="tc-btn" id="restartBtn">↺ RESTART</button>
-
-          <div class="time-display">
-            <span class="ta">A: <span id="timeA">0.000s</span></span>
-            <span class="tb">B: <span id="timeB">0.000s</span></span>
-            <span class="tdiff">Δ: <span id="timeDiff">0.000s</span></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Keyboard hints -->
-      <div class="kbd-hints">
-        <div class="kbd-hint"><kbd>,</kbd> Prev frame (A)</div>
-        <div class="kbd-hint"><kbd>.</kbd> Next frame (A)</div>
-        <div class="kbd-hint"><kbd>Space</kbd><kbd>K</kbd> Play/Pause both</div>
-        <div class="kbd-hint"><kbd>A</kbd> Scrub A only</div>
-        <div class="kbd-hint"><kbd>B</kbd> Scrub B only</div>
-        <div class="kbd-hint"><kbd>S</kbd> Toggle sync</div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-// ───────────────────────────────────────────────────────────
-// CLIP NAME PARSER  →  "1678 1.2500 Close Red.avi"
-// ───────────────────────────────────────────────────────────
-function parseClipName(filename) {
-  // Pattern: <team> <timeToCL> <position>.<ext>
-  // e.g. "1678 1.2500 Close Red.avi"
-  const base = filename.replace(/\.[^.]+$/, '');
-  const m = base.match(/^(\d+)\s+([\d.]+)\s+(.+)$/);
-  if (!m) return null;
-  return {
-    team: m[1],
-    timeToCL: parseFloat(m[2]),
-    position: m[3],
-  };
-}
-
-// ───────────────────────────────────────────────────────────
-// STATE
-// ───────────────────────────────────────────────────────────
-const S = {
-  syncEnabled: true,
-  offset: 0.5,       // B delayed by this many seconds
-  fpsA: 60, fpsB: 60,
-  loadedA: false, loadedB: false,
-  markersA: null, // { start, end, timeToCL } in seconds
-  markersB: null,
-  sourceA: null,  // { type:'queue'|'local'|'gdrive', filename, src }
-  sourceB: null,
-  queueClips: [],  // fetched from /api/clips
-  gdriveTokenA: null, gdriveTokenB: null,
-  activeSlot: 'a',  // which slot keyboard controls
-};
-
-// ───────────────────────────────────────────────────────────
-// DOM
-// ───────────────────────────────────────────────────────────
-const videoA   = document.getElementById('videoA');
-const videoB   = document.getElementById('videoB');
-const playPauseBtn = document.getElementById('playPauseBtn');
-const seekbar  = document.getElementById('seekbar');
-const seekFill = document.getElementById('seekFill');
-const syncBtn  = document.getElementById('syncBtn');
-const toastEl  = document.getElementById('toast');
-const transport = document.getElementById('transport');
-
-// ───────────────────────────────────────────────────────────
-// UTILS
-// ───────────────────────────────────────────────────────────
-function toast(msg, type='', dur=3500) {
-  toastEl.textContent = msg;
-  toastEl.className = 'toast show ' + type;
-  clearTimeout(toastEl._t);
-  toastEl._t = setTimeout(() => toastEl.className = 'toast', dur);
-}
-
-function setStatus(label, mode='idle') {
-  document.getElementById('statusText').textContent = label;
-  document.getElementById('statusDot').className = 'status-dot ' + mode;
-}
-
-function formatSec(s) { return s != null ? s.toFixed(3) + 's' : '—'; }
-
-// ───────────────────────────────────────────────────────────
-// SOURCE TABS
-// ───────────────────────────────────────────────────────────
-document.querySelectorAll('.stab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const slot = btn.dataset.slot;
-    const src  = btn.dataset.src;
-    // Deactivate siblings
-    btn.closest('.slot-card').querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    // Show/hide panels
-    ['queue','local','gdrive'].forEach(s => {
-      const panel = document.getElementById(`src${slot.toUpperCase()}-${s}`);
-      if (panel) panel.classList.toggle('active', s === src);
-    });
-  });
-});
-
-// ───────────────────────────────────────────────────────────
-// QUEUE LOADER
-// ───────────────────────────────────────────────────────────
-async function loadQueue() {
-  try {
-    const r = await fetch('/api/clips');
-    const { clips } = await r.json();
-    S.queueClips = clips || [];
-    renderQueuePicker('a');
-    renderQueuePicker('b');
-  } catch {
-    S.queueClips = [];
-    renderQueuePicker('a');
-    renderQueuePicker('b');
-  }
-}
-
-function renderQueuePicker(slot) {
-  const el = document.getElementById('qp' + slot.toUpperCase());
-  if (S.queueClips.length === 0) {
-    el.innerHTML = '<div class="qp-empty">No clips in queue yet.</div>';
-    return;
-  }
-  el.innerHTML = '';
-  S.queueClips.forEach(clip => {
-    const div = document.createElement('div');
-    div.className = 'qp-item';
-    div.textContent = clip.filename;
-    div.dataset.filename = clip.filename;
-    div.addEventListener('click', () => selectQueueClip(slot, clip));
-    el.appendChild(div);
-  });
-}
-
-function selectQueueClip(slot, clip) {
-  // Highlight
-  document.querySelectorAll('#qp' + slot.toUpperCase() + ' .qp-item').forEach(i => {
-    i.classList.toggle('selected', i.dataset.filename === clip.filename);
-  });
-  const src = '/api/download-clip/' + encodeURIComponent(clip.filename);
-  setSlotSource(slot, { type:'queue', filename: clip.filename, src });
-}
-
-// ───────────────────────────────────────────────────────────
-// LOCAL FILE
-// ───────────────────────────────────────────────────────────
-document.getElementById('fileA').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (!f) return;
-  setSlotSource('a', { type:'local', filename: f.name, src: URL.createObjectURL(f) });
-});
-document.getElementById('fileB').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (!f) return;
-  setSlotSource('b', { type:'local', filename: f.name, src: URL.createObjectURL(f) });
-});
-
-// ───────────────────────────────────────────────────────────
-// GOOGLE DRIVE AUTH  (Google Identity Services)
-// ───────────────────────────────────────────────────────────
-const GAPI_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // replace at deploy time
-const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
-
-function initGoogleDrive(slot) {
-  if (!window.google?.accounts?.oauth2) {
-    toast('Google API not loaded. Add your Client ID and load the GIS script.', 'error', 6000);
-    return;
-  }
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GAPI_CLIENT_ID,
-    scope: GDRIVE_SCOPES,
-    callback: (resp) => {
-      if (resp.error) { toast('Google auth failed: ' + resp.error, 'error'); return; }
-      if (slot === 'a') {
-        S.gdriveTokenA = resp.access_token;
-        document.getElementById('gdriveAuthA').style.display = 'none';
-        document.getElementById('gdriveConnectedA').style.display = 'block';
-      } else {
-        S.gdriveTokenB = resp.access_token;
-        document.getElementById('gdriveAuthB').style.display = 'none';
-        document.getElementById('gdriveConnectedB').style.display = 'block';
-      }
-      toast('Google Drive connected!', 'success');
-    },
-  });
-  tokenClient.requestAccessToken();
-}
-
-document.getElementById('gdriveSignInA').addEventListener('click', () => initGoogleDrive('a'));
-document.getElementById('gdriveSignInB').addEventListener('click', () => initGoogleDrive('b'));
-
-async function browseDriveFolder(slot) {
-  const token = slot === 'a' ? S.gdriveTokenA : S.gdriveTokenB;
-  const folderInput = document.getElementById('gdriveFolder' + slot.toUpperCase());
-  const listEl = document.getElementById('gdriveList' + slot.toUpperCase());
-  const folderName = folderInput.value.trim();
-  if (!token) { toast('Connect Google Drive first.', 'error'); return; }
-  if (!folderName) { toast('Enter a folder name.', 'error'); return; }
-
-  listEl.innerHTML = '<div class="qp-empty">Searching...</div>';
-
-  try {
-    // Find folder by name
-    const searchResp = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=name%3D'${encodeURIComponent(folderName)}'%20and%20mimeType%3D'application%2Fvnd.google-apps.folder'%20and%20trashed%3Dfalse&fields=files(id,name)`,
-      { headers: { Authorization: 'Bearer ' + token } }
-    );
-    const searchData = await searchResp.json();
-    if (!searchData.files?.length) {
-      listEl.innerHTML = '<div class="qp-empty">Folder not found.</div>';
-      return;
-    }
-    const folderId = searchData.files[0].id;
-
-    // List video files in folder
-    const listResp = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed%3Dfalse&fields=files(id,name,mimeType,size)&orderBy=name`,
-      { headers: { Authorization: 'Bearer ' + token } }
-    );
-    const listData = await listResp.json();
-    const videos = (listData.files || []).filter(f =>
-      f.mimeType?.startsWith('video/') || /\.(mp4|avi|mkv|webm|mov|m4v)$/i.test(f.name)
-    );
-
-    if (!videos.length) {
-      listEl.innerHTML = '<div class="qp-empty">No video files found.</div>';
-      return;
-    }
-
-    listEl.innerHTML = '';
-    videos.forEach(file => {
-      const div = document.createElement('div');
-      div.className = 'gd-item';
-      div.innerHTML = `<span class="gd-icon">🎬</span><span>${file.name}</span>`;
       div.dataset.fileId = file.id;
       div.dataset.fileName = file.name;
       div.addEventListener('click', () => {
         listEl.querySelectorAll('.gd-item').forEach(i => i.classList.remove('selected'));
         div.classList.add('selected');
-        // Stream via Drive API
-        const src = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-        // We'll inject the token via fetch + object URL due to CORS
         loadGdriveFile(slot, file.id, file.name, token);
       });
       listEl.appendChild(div);
@@ -860,7 +23,6 @@ async function loadGdriveFile(slot, fileId, fileName, token) {
       { headers: { Authorization: 'Bearer ' + token } }
     );
     if (!resp.ok) throw new Error('Drive fetch failed: ' + resp.status);
-    // Stream to blob
     const reader = resp.body.getReader();
     const total = parseInt(resp.headers.get('Content-Length') || '0');
     const chunks = [];
@@ -894,9 +56,6 @@ function hideSlotLoading(slot) {
   document.getElementById('loading' + slot.toUpperCase()).classList.remove('show');
 }
 
-// ───────────────────────────────────────────────────────────
-// SET SLOT SOURCE  (common final step)
-// ───────────────────────────────────────────────────────────
 function setSlotSource(slot, source) {
   if (slot === 'a') {
     S.sourceA = source;
@@ -914,24 +73,22 @@ function checkLoadReady() {
   document.getElementById('loadBothBtn').disabled = !(S.sourceA && S.sourceB);
 }
 
-// ───────────────────────────────────────────────────────────
-// LOAD COMPARISON
-// ───────────────────────────────────────────────────────────
 document.getElementById('loadBothBtn').addEventListener('click', loadComparison);
 
 async function loadComparison() {
   if (!S.sourceA || !S.sourceB) { toast('Select both clips first.', 'error'); return; }
-  S.offset = parseFloat(document.getElementById('offsetInput').value) || 0;
-
-  // Load A
-  await loadSlotVideo('a', S.sourceA);
-  // Load B
-  await loadSlotVideo('b', S.sourceB);
-
-  transport.style.display = 'block';
-  document.getElementById('markersBar').style.display = 'flex';
-  setStatus('READY', 'ready');
-  toast('Comparison loaded — use Space to play both', 'success');
+  setStatus('LOADING...', 'busy');
+  try {
+    await loadSlotVideo('a', S.sourceA);
+    await loadSlotVideo('b', S.sourceB);
+    transport.style.display = 'block';
+    document.getElementById('markersBar').style.display = 'flex';
+    setStatus('READY', 'ready');
+    toast('Comparison loaded — use Space to play both', 'success');
+  } catch(e) {
+    setStatus('ERROR', 'error');
+    toast('Failed to load: ' + e.message, 'error');
+  }
 }
 
 function loadSlotVideo(slot, source) {
@@ -945,7 +102,6 @@ function loadSlotVideo(slot, source) {
       vid.style.display = 'block';
       if (slot === 'a') { S.loadedA = true; }
       else              { S.loadedB = true; }
-      // Parse markers from filename
       parseMarkersFromFilename(slot, source.filename, vid.duration);
       if (slot === 'a') {
         document.getElementById('titleA').textContent = source.filename.replace(/\.[^.]+$/, '');
@@ -958,14 +114,6 @@ function loadSlotVideo(slot, source) {
   });
 }
 
-// ───────────────────────────────────────────────────────────
-// MARKER PARSING FROM FILENAME
-// ───────────────────────────────────────────────────────────
-// Format: "1678 1.2500 Close Red.avi"
-// The timeToCL is the duration from auto-start to centerline.
-// We'll treat it as if the clip starts at t=0 (after pre-roll).
-// We know: preRoll default 0.5s, so start marker = 0.5s into clip.
-// End marker = start + timeToCL.
 function parseMarkersFromFilename(slot, filename, duration) {
   const info = parseClipName(filename);
   if (!info) {
@@ -975,30 +123,37 @@ function parseMarkersFromFilename(slot, filename, duration) {
     return;
   }
 
-  // Assume default pre-roll of 0.5s (could make this configurable)
-  const preRoll = 0.5;
+  const preRoll  = 0.5;
   const startSec = preRoll;
   const endSec   = preRoll + info.timeToCL;
 
-  const markers = { start: startSec, end: endSec, timeToCL: info.timeToCL };
+  const source    = slot === 'a' ? S.sourceA : S.sourceB;
+  const timeToCL2 = source?.queueData?.timeToCL2 ? parseFloat(source.queueData.timeToCL2) : null;
+  const endSec2   = timeToCL2 != null ? preRoll + timeToCL2 : null;
+
+  const markers = { start: startSec, end: endSec, timeToCL: info.timeToCL, timeToCL2, end2: endSec2 };
 
   if (slot === 'a') { S.markersA = markers; }
   else              { S.markersB = markers; }
 
-  // Show marker pins on timeline
-  const dur = duration || 1;
-  const startPct = (startSec / dur * 100).toFixed(2) + '%';
-  const endPct   = (endSec   / dur * 100).toFixed(2) + '%';
+  const dur  = duration || 1;
+  const S2   = slot.toUpperCase();
+  const tlStart = document.getElementById('tlStart' + S2);
+  const tlEnd   = document.getElementById('tlEnd'   + S2);
+  const tlCL2   = document.getElementById('tlCL2'   + S2);
 
-  const tlStart = document.getElementById('tlStart' + slot.toUpperCase());
-  const tlEnd   = document.getElementById('tlEnd'   + slot.toUpperCase());
-  tlStart.style.left    = startPct;
+  tlStart.style.left = (startSec / dur * 100).toFixed(2) + '%';
   tlStart.style.display = 'block';
-  tlEnd.style.left      = endPct;
+  tlEnd.style.left   = (endSec   / dur * 100).toFixed(2) + '%';
   tlEnd.style.display   = 'block';
+  if (endSec2 != null) {
+    tlCL2.style.left  = (endSec2  / dur * 100).toFixed(2) + '%';
+    tlCL2.style.display  = 'block';
+  }
 
   updateMarkersBar();
-  toast(`Markers detected for ${slot.toUpperCase()}: ${info.timeToCL}s to CL`, 'info');
+  const cl2Msg = timeToCL2 != null ? ` / ${timeToCL2}s CL2` : '';
+  toast(`Markers for ${S2}: ${info.timeToCL}s CL${cl2Msg}`, 'info');
 }
 
 function updateMarkersBar() {
@@ -1007,43 +162,30 @@ function updateMarkersBar() {
   document.getElementById('mbarAStart').textContent = m ? formatSec(m.start) : '—';
   document.getElementById('mbarAEnd').textContent   = m ? formatSec(m.end)   : '—';
   document.getElementById('mbarATime').textContent  = m ? m.timeToCL.toFixed(4) + 's' : '—';
+  document.getElementById('mbarACL2').textContent   = (m && m.timeToCL2 != null) ? m.timeToCL2.toFixed(4) + 's' : '—';
   document.getElementById('mbarBStart').textContent = n ? formatSec(n.start) : '—';
   document.getElementById('mbarBEnd').textContent   = n ? formatSec(n.end)   : '—';
   document.getElementById('mbarBTime').textContent  = n ? n.timeToCL.toFixed(4) + 's' : '—';
+  document.getElementById('mbarBCL2').textContent   = (n && n.timeToCL2 != null) ? n.timeToCL2.toFixed(4) + 's' : '—';
 
-  // Also show seekbar markers for A
   if (m && S.loadedA && videoA.duration) {
-    const pctStart = m.start / videoA.duration * 100;
-    const pctEnd   = m.end   / videoA.duration * 100;
-    const pinS = document.getElementById('pinStartA');
-    const pinE = document.getElementById('pinEndA');
-    pinS.style.left = pctStart + '%'; pinS.style.display = 'block';
-    pinE.style.left = pctEnd   + '%'; pinE.style.display = 'block';
+    const pinS   = document.getElementById('pinStartA');
+    const pinE   = document.getElementById('pinEndA');
+    const pinCL2 = document.getElementById('pinCL2A');
+    pinS.style.left = (m.start / videoA.duration * 100) + '%'; pinS.style.display = 'block';
+    pinE.style.left = (m.end   / videoA.duration * 100) + '%'; pinE.style.display = 'block';
+    if (m.end2 != null) {
+      pinCL2.style.left = (m.end2 / videoA.duration * 100) + '%'; pinCL2.style.display = 'block';
+    }
   }
 }
-
-// ───────────────────────────────────────────────────────────
-// PLAYBACK
-// ───────────────────────────────────────────────────────────
-let syncPending = false;
 
 function isPlaying(v) { return !v.paused && !v.ended; }
 
 function playBoth() {
   if (!S.loadedA && !S.loadedB) return;
   if (S.syncEnabled && S.loadedA && S.loadedB) {
-    // Sync: B starts offset seconds after A
-    videoA.play();
-    if (S.offset > 0) {
-      // If A is still in the offset zone, don't play B yet
-      if (videoA.currentTime < S.offset) {
-        syncPending = true;
-      } else {
-        videoB.play();
-      }
-    } else {
-      videoB.play();
-    }
+    videoA.play(); videoB.play();
   } else {
     if (S.loadedA) videoA.play();
     if (S.loadedB) videoB.play();
@@ -1055,7 +197,6 @@ function pauseBoth() {
   if (S.loadedA) videoA.pause();
   if (S.loadedB) videoB.pause();
   playPauseBtn.textContent = '▶ PLAY BOTH';
-  syncPending = false;
 }
 
 function togglePlay() {
@@ -1065,17 +206,6 @@ function togglePlay() {
 
 playPauseBtn.addEventListener('click', togglePlay);
 
-// Sync pending check: start B when A passes offset
-videoA.addEventListener('timeupdate', () => {
-  if (syncPending && videoA.currentTime >= S.offset) {
-    syncPending = false;
-    // Set B position to compensate
-    videoB.currentTime = videoA.currentTime - S.offset;
-    videoB.play();
-  }
-});
-
-// Seekbar driven by A
 videoA.addEventListener('timeupdate', updateTransport);
 videoB.addEventListener('timeupdate', updateTransport);
 
@@ -1088,102 +218,65 @@ function updateTransport() {
   document.getElementById('timeA').textContent  = formatSec(videoA.currentTime);
   document.getElementById('timeB').textContent  = S.loadedB ? formatSec(videoB.currentTime) : '—';
   document.getElementById('timeDiff').textContent = (S.loadedA && S.loadedB)
-    ? formatSec(Math.abs(videoA.currentTime - videoB.currentTime - S.offset))
+    ? formatSec(Math.abs(videoA.currentTime - videoB.currentTime))
     : '—';
 
-  // Update slot progress bars
   if (videoA.duration)
     document.getElementById('progressA').style.width = (videoA.currentTime / videoA.duration * 100) + '%';
   if (S.loadedB && videoB.duration)
     document.getElementById('progressB').style.width = (videoB.currentTime / videoB.duration * 100) + '%';
 }
 
-// Seekbar scrub
 seekbar.addEventListener('input', () => {
   if (!S.loadedA) return;
   const t = (seekbar.value / 10000) * videoA.duration;
   videoA.currentTime = t;
-  if (S.syncEnabled && S.loadedB) {
-    const tB = Math.max(0, t - S.offset);
-    videoB.currentTime = tB;
-  }
+  if (S.syncEnabled && S.loadedB) videoB.currentTime = t;
 });
 
-// Restart
 document.getElementById('restartBtn').addEventListener('click', () => {
   if (S.loadedA) videoA.currentTime = 0;
   if (S.loadedB) videoB.currentTime = 0;
   pauseBoth();
 });
 
-// Sync toggle
 syncBtn.addEventListener('click', () => {
   S.syncEnabled = !S.syncEnabled;
   syncBtn.classList.toggle('active', S.syncEnabled);
   toast('Sync ' + (S.syncEnabled ? 'ON' : 'OFF'), 'info');
 });
 
-// ───────────────────────────────────────────────────────────
-// KEYBOARD
-// ───────────────────────────────────────────────────────────
-let activeScrubSlot = 'a';  // a=scrub A, b=scrub B, both=default
+let activeScrubSlot = 'a';
 document.addEventListener('keydown', e => {
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if (e.key === ' ' || e.key === 'k' || e.key === 'K') { e.preventDefault(); togglePlay(); return; }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); syncBtn.click(); return; }
+  if (e.key === 'a' || e.key === 'A') { activeScrubSlot = 'a'; toast('Scrubbing: Clip A', 'info', 1200); return; }
+  if (e.key === 'b' || e.key === 'B') { activeScrubSlot = 'b'; toast('Scrubbing: Clip B', 'info', 1200); return; }
 
-  if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
-    e.preventDefault(); togglePlay(); return;
-  }
-  if (e.key === 's' || e.key === 'S') {
-    e.preventDefault(); syncBtn.click(); return;
-  }
-  if (e.key === 'a' || e.key === 'A') {
-    activeScrubSlot = 'a';
-    toast('Scrubbing: Clip A', 'info', 1200);
-    return;
-  }
-  if (e.key === 'b' || e.key === 'B') {
-    activeScrubSlot = 'b';
-    toast('Scrubbing: Clip B', 'info', 1200);
-    return;
-  }
-
-  const fps = activeScrubSlot === 'a' ? (S.fpsA || 60) : (S.fpsB || 60);
-  const vid = activeScrubSlot === 'a' ? videoA : videoB;
+  const fps    = activeScrubSlot === 'a' ? (S.fpsA || 60) : (S.fpsB || 60);
+  const vid    = activeScrubSlot === 'a' ? videoA : videoB;
   const loaded = activeScrubSlot === 'a' ? S.loadedA : S.loadedB;
   if (!loaded) return;
 
-  if (e.key === ',') {
-    e.preventDefault();
-    vid.pause();
-    vid.currentTime = Math.max(0, vid.currentTime - 1/fps);
-    if (S.syncEnabled && activeScrubSlot === 'a' && S.loadedB)
-      videoB.currentTime = Math.max(0, vid.currentTime - S.offset);
-  }
-  if (e.key === '.') {
-    e.preventDefault();
-    vid.pause();
-    vid.currentTime = Math.min(vid.duration, vid.currentTime + 1/fps);
-    if (S.syncEnabled && activeScrubSlot === 'a' && S.loadedB)
-      videoB.currentTime = Math.max(0, vid.currentTime - S.offset);
-  }
+  if (e.key === ',') { e.preventDefault(); vid.pause(); vid.currentTime = Math.max(0, vid.currentTime - 1/fps); if (S.syncEnabled && activeScrubSlot === 'a' && S.loadedB) videoB.currentTime = vid.currentTime; }
+  if (e.key === '.') { e.preventDefault(); vid.pause(); vid.currentTime = Math.min(vid.duration, vid.currentTime + 1/fps); if (S.syncEnabled && activeScrubSlot === 'a' && S.loadedB) videoB.currentTime = vid.currentTime; }
 });
 
 document.getElementById('prevFrameBtn').addEventListener('click', () => {
   if (!S.loadedA) return;
   videoA.pause(); videoA.currentTime = Math.max(0, videoA.currentTime - 1/(S.fpsA||60));
-  if (S.syncEnabled && S.loadedB) videoB.currentTime = Math.max(0, videoA.currentTime - S.offset);
+  if (S.syncEnabled && S.loadedB) videoB.currentTime = videoA.currentTime;
 });
 document.getElementById('nextFrameBtn').addEventListener('click', () => {
   if (!S.loadedA) return;
   videoA.pause(); videoA.currentTime = Math.min(videoA.duration, videoA.currentTime + 1/(S.fpsA||60));
-  if (S.syncEnabled && S.loadedB) videoB.currentTime = Math.max(0, videoA.currentTime - S.offset);
+  if (S.syncEnabled && S.loadedB) videoB.currentTime = videoA.currentTime;
 });
 
-// ───────────────────────────────────────────────────────────
-// INIT
-// ───────────────────────────────────────────────────────────
+loadQueue();
+
 (async () => {
-  await loadQueue();
   try {
     const r = await fetch('/api/check');
     const c = await r.json();
