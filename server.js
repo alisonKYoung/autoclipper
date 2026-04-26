@@ -323,6 +323,8 @@ app.delete('/api/clip/:filename', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/compare', (req, res) => res.sendFile(path.join(__dirname, 'public', 'compare.html')));
+
 app.get('/{*path}', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
