@@ -409,7 +409,7 @@
           </div>
           <!-- Local source -->
           <div class="source-panel" id="srcA-local">
-            <label class="file-input-btn" for="fileA">📂 Choose video file...</label>
+            <button class="file-input-btn" id="localBtnA">📂 Choose video file...</button>
             <input type="file" id="fileA" accept="video/*" style="display:none">
           </div>
           <!-- Google Drive source -->
@@ -451,7 +451,7 @@
             </div>
           </div>
           <div class="source-panel" id="srcB-local">
-            <label class="file-input-btn" for="fileB">📂 Choose video file...</label>
+            <button class="file-input-btn" id="localBtnB">📂 Choose video file...</button>
             <input type="file" id="fileB" accept="video/*" style="display:none">
           </div>
           <div class="source-panel" id="srcB-gdrive">
@@ -744,16 +744,62 @@ function selectQueueClip(slot, clip) {
 // ───────────────────────────────────────────────────────────
 // LOCAL FILE
 // ───────────────────────────────────────────────────────────
+document.getElementById('localBtnA').addEventListener('click', () => document.getElementById('fileA').click());
+document.getElementById('localBtnB').addEventListener('click', () => document.getElementById('fileB').click());
+
 document.getElementById('fileA').addEventListener('change', e => {
   const f = e.target.files[0];
-  if (!f) return;
-  setSlotSource('a', { type:'local', filename: f.name, src: URL.createObjectURL(f) });
+  if (f) handleLocalFile('a', f);
+  e.target.value = '';
 });
 document.getElementById('fileB').addEventListener('change', e => {
   const f = e.target.files[0];
-  if (!f) return;
-  setSlotSource('b', { type:'local', filename: f.name, src: URL.createObjectURL(f) });
+  if (f) handleLocalFile('b', f);
+  e.target.value = '';
 });
+
+const NATIVE_EXTS = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v']);
+
+async function handleLocalFile(slot, file) {
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  if (NATIVE_EXTS.has(ext)) {
+    setSlotSource(slot, { type: 'local', filename: file.name, src: URL.createObjectURL(file) });
+    return;
+  }
+  // Non-native (AVI, MKV, etc.) — upload for server-side conversion
+  showSlotLoading(slot, 'Uploading for conversion...', 10);
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload-for-compare');
+    xhr.upload.onprogress = ev => {
+      if (ev.lengthComputable)
+        showSlotLoading(slot, 'Uploading...', Math.round(ev.loaded / ev.total * 70));
+    };
+    xhr.onload = () => {
+      if (xhr.status !== 200) {
+        hideSlotLoading(slot);
+        toast('Upload failed: ' + xhr.statusText, 'error');
+        return;
+      }
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch {
+        hideSlotLoading(slot);
+        toast('Bad response from server', 'error');
+        return;
+      }
+      showSlotLoading(slot, 'Converting...', 85);
+      hideSlotLoading(slot);
+      setSlotSource(slot, { type: 'local', filename: file.name, src: data.streamUrl });
+    };
+    xhr.onerror = () => { hideSlotLoading(slot); toast('Upload error', 'error'); };
+    xhr.send(form);
+  } catch(e) {
+    hideSlotLoading(slot);
+    toast('Error: ' + e.message, 'error');
+  }
+}
 
 // ───────────────────────────────────────────────────────────
 // GOOGLE DRIVE AUTH  (Google Identity Services)

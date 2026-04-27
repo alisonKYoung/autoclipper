@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 const { execFile, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -25,6 +26,14 @@ const CLIPS_DIR = path.join(__dirname, 'clips');
 if (!fs.existsSync(CLIPS_DIR)) fs.mkdirSync(CLIPS_DIR, { recursive: true });
 
 const jobs = {};
+
+const uploadMiddleware = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, WORK_DIR),
+    filename:    (req, file, cb) => cb(null, crypto.randomUUID() + path.extname(file.originalname)),
+  }),
+  limits: { fileSize: 500 * 1024 * 1024 },
+});
 
 // ─── Binary resolution ────────────────────────────────────────────────────────
 function findBinary(name) {
@@ -356,6 +365,49 @@ app.get('/api/stream-clip/:filename', (req, res) => {
 app.delete('/api/clip/:filename', (req, res) => {
   try { fs.unlinkSync(path.join(CLIPS_DIR, path.basename(req.params.filename))); } catch {}
   res.json({ ok: true });
+});
+
+// Upload a local video file for compare-page streaming.
+// Native browser formats (mp4/webm/mov) are served as-is via /api/video/:id.
+// Everything else (avi, mkv, etc.) is converted to MP4 first.
+app.post('/api/upload-for-compare', uploadMiddleware.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file received' });
+  const inPath = req.file.path;
+  const ext    = path.extname(req.file.originalname).toLowerCase();
+  const id     = crypto.randomUUID();
+
+  const nativeExts = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v']);
+  if (nativeExts.has(ext)) {
+    jobs[id] = { status: 'ready', filePath: inPath, message: 'Ready' };
+    return res.json({ streamUrl: '/api/video/' + id });
+  }
+
+  const outPath  = path.join(WORK_DIR, id + '.mp4');
+  let responded  = false;
+
+  const proc = spawn(FFMPEG, [
+    '-y', '-i', inPath,
+    '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
+    '-c:a', 'aac', '-b:a', '128k',
+    '-movflags', '+faststart',
+    outPath,
+  ]);
+  proc.stderr.on('data', () => {});
+
+  proc.on('error', err => {
+    if (responded) return; responded = true;
+    try { fs.unlinkSync(inPath); } catch {}
+    res.status(500).json({ error: 'ffmpeg error: ' + err.message });
+  });
+
+  proc.on('close', code => {
+    if (responded) return; responded = true;
+    try { fs.unlinkSync(inPath); } catch {}
+    if (code !== 0 || !fs.existsSync(outPath))
+      return res.status(500).json({ error: 'Conversion failed (ffmpeg code ' + code + ')' });
+    jobs[id] = { status: 'ready', filePath: outPath, message: 'Ready' };
+    res.json({ streamUrl: '/api/video/' + id });
+  });
 });
 
 app.get('/compare', (req, res) => res.sendFile(path.join(__dirname, 'public', 'compare.html')));
