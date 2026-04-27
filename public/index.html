@@ -263,7 +263,7 @@
 
         <div class="timing-grid">
           <div class="timing-box start">
-            <div class="tb-label">Start Frame</div>
+            <div class="tb-label">20→19 Frame</div>
             <div class="tb-value" id="dispStart">—</div>
           </div>
           <div class="timing-box end">
@@ -281,7 +281,7 @@
         </div>
 
         <div class="frame-btn-row">
-          <button class="btn-set-start" id="setStartBtn" disabled>[ SET START</button>
+          <button class="btn-set-start" id="setStartBtn" disabled>[ 20→19</button>
           <button class="btn-set-end"   id="setEndBtn"   disabled>SET END ]</button>
         </div>
         <button class="btn-set-c2" id="setC2Btn" disabled>✦ SET CENTER 2</button>
@@ -290,8 +290,6 @@
 
       <div class="sb-section">
         <h3>Clip Settings</h3>
-        <label>PRE-ROLL (sec before start)</label>
-        <input type="number" id="preRoll" value="0.5" step="0.1" min="0" />
         <label>TOTAL CLIP DURATION (sec)</label>
         <input type="number" id="clipDur" value="22.5" step="0.1" min="1" />
         <button class="btn btn-primary" id="addClipBtn" disabled>+ ADD TO QUEUE</button>
@@ -337,7 +335,7 @@
         <div class="kbd-hint"><kbd>,</kbd> Prev frame</div>
         <div class="kbd-hint"><kbd>.</kbd> Next frame</div>
         <div class="kbd-hint"><kbd>Space</kbd><kbd>K</kbd> Play/Pause</div>
-        <div class="kbd-hint"><kbd>[</kbd> Set Start</div>
+        <div class="kbd-hint"><kbd>[</kbd> Set 20→19</div>
         <div class="kbd-hint"><kbd>]</kbd> Set End</div>
         <div class="kbd-hint"><kbd>\</kbd> Set Center 2</div>
         <div class="kbd-hint"><kbd>Enter</kbd> Add to queue</div>
@@ -676,10 +674,10 @@ function addClip() {
   const center2Time = (S.center2Frame !== null && S.center2Frame > S.startFrame)
     ? ((S.center2Frame - S.startFrame) / S.fps).toFixed(4)
     : null;
-  const preRoll   = parseFloat(document.getElementById('preRoll').value) || 0.5;
+  const preRoll   = 1.5;
   const clipDur   = parseFloat(document.getElementById('clipDur').value) || 22.5;
   const clipStart = Math.max(0, frameToSec(S.startFrame) - preRoll);
-  const filename  = `${team} ${timeToCL} ${pos}.mp4`;
+  const filename  = `${team} ${timeToCL} ${pos}.avi`;
 
   S.clips.push({
     id: Date.now(),

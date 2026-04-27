@@ -265,11 +265,11 @@ app.post('/api/clip', (req, res) => {
   if (!srcJob || srcJob.status !== 'ready' || !srcJob.filePath) return res.status(400).json({ error: 'Source not ready' });
   if (!fs.existsSync(srcJob.filePath)) return res.status(400).json({ error: 'Source file missing' });
 
-  const clipJobId    = crypto.randomUUID();
-  const safeFilename = filename.replace(/[/\\?%*:|"<>]/g, '_');
-  const outPath      = path.join(CLIPS_DIR, safeFilename);
+  const clipJobId = crypto.randomUUID();
+  const safeBase  = filename.replace(/[/\\?%*:|"<>]/g, '_').replace(/\.[^.]+$/, '');
+  const outPath   = path.join(CLIPS_DIR, safeBase + '.mp4');
 
-  jobs[clipJobId] = { status: 'processing', progress: 0, message: 'Starting...', filePath: outPath, filename: safeFilename };
+  jobs[clipJobId] = { status: 'processing', progress: 0, message: 'Starting...', filePath: outPath, filename: safeBase + '.avi' };
   res.json({ jobId: clipJobId });
 
   const proc = spawn(FFMPEG, [
@@ -308,34 +308,47 @@ app.post('/api/clip', (req, res) => {
 // ─── GET /api/clips ───────────────────────────────────────────────────────────
 app.get('/api/clips', (req, res) => {
   try {
-    const files = fs.readdirSync(CLIPS_DIR).filter(f => /\.(mp4|avi)$/i.test(f))
-      .map(f => { const s = fs.statSync(path.join(CLIPS_DIR, f)); return { filename: f, size: s.size, created: s.mtimeMs }; })
+    const files = fs.readdirSync(CLIPS_DIR).filter(f => /\.mp4$/i.test(f))
+      .map(f => { const s = fs.statSync(path.join(CLIPS_DIR, f)); return { filename: f.replace(/\.mp4$/i, '.avi'), size: s.size, created: s.mtimeMs }; })
       .sort((a, b) => b.created - a.created);
     res.json({ clips: files });
   } catch { res.json({ clips: [] }); }
 });
 
+// Download as AVI — find the stored MP4, convert to AVI on the fly via ffmpeg pipe
 app.get('/api/download-clip/:filename', (req, res) => {
-  const fp = path.join(CLIPS_DIR, path.basename(req.params.filename));
-  if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
-  res.download(fp);
+  const base    = path.basename(req.params.filename).replace(/\.[^.]+$/, '');
+  const mp4Path = path.join(CLIPS_DIR, base + '.mp4');
+  if (!fs.existsSync(mp4Path)) return res.status(404).json({ error: 'Not found' });
+  const aviName = base + '.avi';
+  res.setHeader('Content-Disposition', `attachment; filename="${aviName}"`);
+  res.setHeader('Content-Type', 'video/x-msvideo');
+  const proc = spawn(FFMPEG, [
+    '-i', mp4Path,
+    '-c:v', 'mpeg4', '-q:v', '5',
+    '-c:a', 'libmp3lame', '-b:a', '128k',
+    '-f', 'avi', 'pipe:1',
+  ]);
+  proc.stdout.pipe(res);
+  proc.stderr.on('data', () => {});
+  req.on('close', () => { try { proc.kill(); } catch {} });
 });
 
+// Stream for browser playback — serves the stored MP4 directly with range-request support
 app.get('/api/stream-clip/:filename', (req, res) => {
-  const fp = path.join(CLIPS_DIR, path.basename(req.params.filename));
+  const base = path.basename(req.params.filename).replace(/\.[^.]+$/, '');
+  const fp   = path.join(CLIPS_DIR, base + '.mp4');
   if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
-  const stat = fs.statSync(fp);
-  const ext  = path.extname(fp).toLowerCase();
-  const mime = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.avi': 'video/x-msvideo' }[ext] || 'video/mp4';
+  const stat  = fs.statSync(fp);
   const range = req.headers.range;
   if (range) {
     const [s, e] = range.replace(/bytes=/, '').split('-');
     const start  = parseInt(s, 10);
     const end    = e ? parseInt(e, 10) : stat.size - 1;
-    res.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${stat.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Content-Type': mime });
+    res.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${stat.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, 'Content-Type': 'video/mp4' });
     fs.createReadStream(fp, { start, end }).pipe(res);
   } else {
-    res.writeHead(200, { 'Content-Length': stat.size, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
+    res.writeHead(200, { 'Content-Length': stat.size, 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes' });
     fs.createReadStream(fp).pipe(res);
   }
 });

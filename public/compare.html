@@ -961,7 +961,7 @@ function loadSlotVideo(slot, source) {
 // Format: "1678 1.2500 Close Red.avi"
 // The timeToCL is the duration from auto-start to centerline.
 // We'll treat it as if the clip starts at t=0 (after pre-roll).
-// We know: preRoll default 0.5s, so start marker = 0.5s into clip.
+// We know: preRoll is 1.5s, so start marker = 1.5s into clip.
 // End marker = start + timeToCL.
 function parseMarkersFromFilename(slot, filename, duration, center2Time = null) {
   const info = parseClipName(filename);
@@ -972,7 +972,7 @@ function parseMarkersFromFilename(slot, filename, duration, center2Time = null) 
     return;
   }
 
-  const preRoll  = 0.5;
+  const preRoll  = 1.5;
   const startSec = preRoll;
   const endSec   = preRoll + info.timeToCL;
   const center2Sec = (center2Time != null) ? preRoll + parseFloat(center2Time) : null;
