@@ -405,8 +405,8 @@ app.get('/compare', (req, res) => res.sendFile(path.join(__dirname, 'public', 'c
 
 app.get('/{*path}', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 30000;
 app.listen(PORT, () => {
-  console.log(`\n🤖 FRC 1678 Auto Clipper → http://localhost:${PORT}`);
+  console.log(`\n🤖 FRC 1678 Auto Clipper → http://localhost:${PORT} hiii`);
   console.log('Run GET /api/check to verify ffmpeg + yt-dlp are working\n');
 });
