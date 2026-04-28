@@ -437,11 +437,11 @@ function saveQueue() {
     status: c.status === 'processing' ? 'queued' : c.status,
     clipJobId: c.status === 'ready' ? c.clipJobId : null,
   }));
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(data)); } catch {}
+  try { sessionStorage.setItem(QUEUE_KEY, JSON.stringify(data)); } catch {}
 }
 function loadSavedQueue() {
   try {
-    const raw = localStorage.getItem(QUEUE_KEY);
+    const raw = sessionStorage.getItem(QUEUE_KEY);
     if (!raw) return;
     S.clips = JSON.parse(raw);
     renderQueue();

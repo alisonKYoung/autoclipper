@@ -677,7 +677,7 @@ const S = {
   markersB: null,
   sourceA: null,  // { type:'queue'|'local'|'gdrive', filename, src, center2Time }
   sourceB: null,
-  queueClips: [],  // loaded from localStorage
+  queueClips: [],  // loaded from sessionStorage
   gdriveTokenA: null, gdriveTokenB: null,
   activeSlot: 'a',
 };
@@ -734,7 +734,7 @@ document.querySelectorAll('.stab').forEach(btn => {
 // ───────────────────────────────────────────────────────────
 function loadQueue() {
   try {
-    const raw = localStorage.getItem('frc_clipper_queue');
+    const raw = sessionStorage.getItem('frc_clipper_queue');
     S.queueClips = raw ? JSON.parse(raw) : [];
   } catch {
     S.queueClips = [];
@@ -832,7 +832,7 @@ async function handleLocalFile(slot, file) {
 // GOOGLE DRIVE  — shared token, any account, shared drives
 // ── Fill in your OAuth Client ID below ──────────────────────
 const GDRIVE_CLIENT_ID = '995043690566-pbslh2o02d0n1upmj4o605p91uqkuaot.apps.googleusercontent.com';
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // ────────────────────────────────────────────────────────────
 
 let driveToken = null; // shared across both slots
