@@ -37,15 +37,6 @@ const uploadMiddleware = multer({
 
 // ─── Binary resolution ────────────────────────────────────────────────────────
 function findBinary(name) {
-  // 1. Try ffmpeg-static npm package (auto-installs correct binary for platform)
-  if (name === 'ffmpeg') {
-    try {
-      const p = require('ffmpeg-static');
-      if (p && fs.existsSync(p)) { console.log('ffmpeg: ffmpeg-static →', p); return p; }
-    } catch {}
-  }
-
-  // 2. Common system paths
   const isWin = process.platform === 'win32';
   const candidates = isWin
     ? [
@@ -56,8 +47,8 @@ function findBinary(name) {
         name,
       ]
     : [
-        `/usr/local/bin/${name}`,
         `/usr/bin/${name}`,
+        `/usr/local/bin/${name}`,
         `/opt/homebrew/bin/${name}`,
         path.join(os.homedir(), '.local/bin', name),
         `/root/.local/bin/${name}`,
@@ -68,8 +59,8 @@ function findBinary(name) {
     try { fs.accessSync(c, fs.constants.X_OK); console.log(`${name}: found at ${c}`); return c; } catch {}
   }
 
-  console.warn(`WARNING: ${name} not found — install it or run: npm install ffmpeg-static`);
-  return name; // last resort, let PATH try
+  console.warn(`WARNING: ${name} not found — make sure ffmpeg is installed (apt-get install ffmpeg)`);
+  return name; // last resort, let PATH resolve it
 }
 
 function findYtDlp() {
@@ -292,7 +283,7 @@ app.post('/api/clip', (req, res) => {
 
   proc.on('error', err => {
     jobs[clipJobId].status  = 'error';
-    jobs[clipJobId].message = `ffmpeg not found: ${err.message}. Run: npm install ffmpeg-static`;
+    jobs[clipJobId].message = `ffmpeg not found: ${err.message}. Make sure ffmpeg is installed (apt-get install ffmpeg).`;
   });
 
   proc.stderr.on('data', d => {
@@ -414,7 +405,7 @@ app.get('/compare', (req, res) => res.sendFile(path.join(__dirname, 'public', 'c
 
 app.get('/{*path}', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 30000;
 app.listen(PORT, () => {
   console.log(`\n🤖 FRC 1678 Auto Clipper → http://localhost:${PORT}`);
   console.log('Run GET /api/check to verify ffmpeg + yt-dlp are working\n');
