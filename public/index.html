@@ -630,10 +630,12 @@ document.addEventListener('keydown', (e) => {
 // ─── Markers ──────────────────────────────────────────────────────────────────
 function setStart() {
   if (!S.loaded) return;
-  S.startFrame = frame();
+  const markedFrame    = frame();
+  const preRollFrames  = Math.round(1.5 * S.fps);
+  S.startFrame = Math.max(0, markedFrame - preRollFrames);
   dispStart.textContent = S.startFrame;
   recalc(); updateDisplay();
-  toast('Start: frame ' + S.startFrame + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
+  toast('Start set: 20→19 at frame ' + markedFrame + ', auto-start → frame ' + S.startFrame + ' (−1.5s)', 'info');
 }
 function setEnd() {
   if (!S.loaded) return;
@@ -674,9 +676,8 @@ function addClip() {
   const center2Time = (S.center2Frame !== null && S.center2Frame > S.startFrame)
     ? ((S.center2Frame - S.startFrame) / S.fps).toFixed(4)
     : null;
-  const preRoll   = 1.5;
   const clipDur   = parseFloat(document.getElementById('clipDur').value) || 22.5;
-  const clipStart = Math.max(0, frameToSec(S.startFrame) - preRoll);
+  const clipStart = frameToSec(S.startFrame);  // startFrame already has 1.5s pre-roll baked in from setStart()
   const filename  = `${team} ${timeToCL} ${pos}.avi`;
 
   S.clips.push({
@@ -724,7 +725,7 @@ function renderQueue() {
       <div class="ci-actions">
         <button class="ci-dl" id="ci-dl-${clip.id}"
           onclick="downloadClip(${clip.id})"
-          ${clip.status !== 'ready' ? 'disabled' : ''}>
+          ${clip.status === 'processing' ? 'disabled' : ''}>
           ${clip.status === 'queued' ? '⚙ PROCESS' : clip.status === 'ready' ? '⬇ DL' : clip.status === 'processing' ? '...' : '⚙ RETRY'}
         </button>
         <button class="ci-del" onclick="removeClip(${clip.id})">✕</button>
