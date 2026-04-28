@@ -483,6 +483,9 @@
           </div>
           <div class="source-panel" id="srcB-gdrive">
             <div id="gdriveAuthSharedB" style="display:block">
+              <drive-picker app-id="995043690566" client-id="995043690566-pbslh2o02d0n1upmj4o605p91uqkuaot.apps.googleusercontent.com" developer-key="AIzaSyBS8BYa5kyke-D69ArAgb2qiNQd1KhJSnQ">
+                <drive-picker-docs-view></drive-picker-docs-view>
+              </drive-picker>
               <button class="google-btn" id="gdriveSignInBtnB">
                 <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
                 Connect Google Drive
@@ -649,6 +652,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
+import "@googleworkspace/drive-picker-element";
 // ───────────────────────────────────────────────────────────
 // CLIP NAME PARSER  →  "1678 1.2500 Close Red.avi"
 // ───────────────────────────────────────────────────────────
@@ -833,188 +837,26 @@ async function handleLocalFile(slot, file) {
 // ── Fill in your OAuth Client ID below ──────────────────────
 const GDRIVE_CLIENT_ID = '995043690566-pbslh2o02d0n1upmj4o605p91uqkuaot.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const API_KEY = 'AIzaSyBS8BYa5kyke-D69ArAgb2qiNQd1KhJSnQ';
+const APP_ID = '995043690566'
 // ────────────────────────────────────────────────────────────
 
 let driveToken = null; // shared across both slots
 
-function onDriveConnected() {
-  // Show connected state on both slot panels
-  ['gdriveAuthShared','gdriveAuthSharedB'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  ['gdriveConnectedShared','gdriveConnectedSharedB'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'block';
-  });
-  const badge = document.getElementById('gdriveUserBadge');
-  if (badge) badge.textContent = 'Drive Connected';
-}
-
-// Token client is created once and reused — recreating it on every click
-// causes the popup to complete but the callback to silently not fire.
-let _tokenClient = null;
-
-function connectDrive(afterConnect) {
-  if (!window.google?.accounts?.oauth2) {
-    toast('Google sign-in not loaded yet — wait a moment and try again.', 'error', 6000);
-    return;
-  }
-  // Always create fresh so the afterConnect closure is current
-  _tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GDRIVE_CLIENT_ID,
-    scope: GDRIVE_SCOPE,
-    callback: resp => {
-      if (resp.error || resp.error_description) {
-        const msg = resp.error_description || resp.error;
-        toast('Drive auth failed: ' + msg, 'error', 8000);
-        console.error('Drive auth error:', resp);
-        return;
-      }
-      if (!resp.access_token) {
-        toast('Drive auth: no token returned — check your Client ID and authorized origins.', 'error', 8000);
-        console.error('Drive auth empty response:', resp);
-        return;
-      }
-      driveToken = resp.access_token;
-      onDriveConnected();
-      toast('Google Drive connected!', 'success');
-      if (afterConnect) afterConnect();
-    },
-  });
-  _tokenClient.requestAccessToken({ prompt: driveToken ? '' : 'consent' });
-}
-
 // Both sign-in buttons trigger the same shared auth
 document.getElementById('gdriveSignInBtn').addEventListener('click', () => connectDrive());
 document.getElementById('gdriveSignInBtnB').addEventListener('click', () => connectDrive());
+document.getElementById('gdriveSignInBtn').style.visibility = 'hidden';
+document.getElementById('gdriveSignInBtnB').style.visibility = 'hidden';
 
-async function browseDriveFolder(slot) {
-  if (!driveToken) { connectDrive(() => browseDriveFolder(slot)); return; }
-  const folderInput = document.getElementById('gdriveFolder' + slot.toUpperCase());
-  const listEl      = document.getElementById('gdriveList'  + slot.toUpperCase());
-  const folderName  = folderInput.value.trim();
-  if (!folderName) { toast('Enter a folder name first.', 'error'); return; }
+let tokenClient;
+let accessToken = null;
+const picker = document.querySelector("drive-picker");
+picker.addEventListener("picker:authenticated", console.log);
+picker.addEventListener("picker:picked", console.log);
+picker.addEventListener("picker:canceled", console.log);
 
-  listEl.innerHTML = '<div class="qp-empty">Searching...</div>';
-
-  try {
-    // Search My Drive AND shared drives (supportsAllDrives=true, includeItemsFromAllDrives=true)
-    const q = encodeURIComponent(
-      "name='" + folderName.replace(/'/g, "\'") + "' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    );
-    const searchResp = await fetch(
-      'https://www.googleapis.com/drive/v3/files?q=' + q +
-      '&fields=files(id,name,driveId)&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives',
-      { headers: { Authorization: 'Bearer ' + driveToken } }
-    );
-    if (searchResp.status === 401) { driveToken = null; connectDrive(() => browseDriveFolder(slot)); return; }
-    const searchData = await searchResp.json();
-    if (!searchData.files?.length) {
-      listEl.innerHTML = '<div class="qp-empty">Folder not found. Check the name and try again.</div>';
-      return;
-    }
-    const folder = searchData.files[0];
-    const folderId = folder.id;
-
-    // List video files — include shared drive items
-    const listResp = await fetch(
-      "https://www.googleapis.com/drive/v3/files?q='" + folderId + "'+in+parents+and+trashed%3Dfalse" +
-      '&fields=files(id,name,mimeType,size)&orderBy=name&pageSize=200' +
-      '&includeItemsFromAllDrives=true&supportsAllDrives=true',
-      { headers: { Authorization: 'Bearer ' + driveToken } }
-    );
-    const listData = await listResp.json();
-    const videos = (listData.files || []).filter(f =>
-      f.mimeType?.startsWith('video/') || /\.(mp4|avi|mkv|webm|mov|m4v)$/i.test(f.name)
-    );
-
-    if (!videos.length) {
-      listEl.innerHTML = '<div class="qp-empty">No video files in this folder.</div>';
-      return;
-    }
-
-    listEl.innerHTML = '';
-    videos.forEach(file => {
-      const div = document.createElement('div');
-      div.className = 'gd-item';
-      div.innerHTML = '<span class="gd-icon">🎬</span><span>' + file.name + '</span>';
-      div.dataset.fileId   = file.id;
-      div.dataset.fileName = file.name;
-      // Restore highlight if already selected
-      const cur = slot === 'a' ? S.sourceA : S.sourceB;
-      if (cur && cur.filename === file.name) div.classList.add('selected');
-      div.addEventListener('click', () => {
-        listEl.querySelectorAll('.gd-item').forEach(i => i.classList.remove('selected'));
-        div.classList.add('selected');
-        loadGdriveFile(slot, file.id, file.name);
-      });
-      listEl.appendChild(div);
-    });
-  } catch(e) {
-    listEl.innerHTML = '<div class="qp-empty">Error: ' + e.message + '</div>';
-  }
-}
-
-document.getElementById('gdriveBrowseA').addEventListener('click', () => browseDriveFolder('a'));
-document.getElementById('gdriveBrowseB').addEventListener('click', () => browseDriveFolder('b'));
-
-async function loadGdriveFile(slot, fileId, fileName) {
-  if (!driveToken) { toast('Drive not connected.', 'error'); return; }
-  showSlotLoading(slot, 'Downloading from Drive...', 0);
-  try {
-    const resp = await fetch(
-      'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true',
-      { headers: { Authorization: 'Bearer ' + driveToken } }
-    );
-    if (resp.status === 401) { driveToken = null; hideSlotLoading(slot); connectDrive(() => loadGdriveFile(slot, fileId, fileName)); return; }
-    if (!resp.ok) throw new Error('Drive fetch ' + resp.status);
-
-    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-    const nativeExts = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v']);
-
-    if (nativeExts.has(ext)) {
-      // Native format — blob URL directly
-      const reader = resp.body.getReader();
-      const total  = parseInt(resp.headers.get('Content-Length') || '0');
-      const chunks = []; let received = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value); received += value.length;
-        if (total) showSlotLoading(slot, 'Downloading...', Math.round(received / total * 100));
-      }
-      const src = URL.createObjectURL(new Blob(chunks));
-      hideSlotLoading(slot);
-      setSlotSource(slot, { type: 'gdrive', filename: fileName, src });
-    } else {
-      // Non-native (AVI, MKV…) — pipe through server for transcoding
-      showSlotLoading(slot, 'Uploading for conversion...', 10);
-      const blob = await resp.blob();
-      const form = new FormData();
-      form.append('file', blob, fileName);
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/upload-for-compare');
-      xhr.upload.onprogress = ev => {
-        if (ev.lengthComputable)
-          showSlotLoading(slot, 'Converting...', Math.round(ev.loaded / ev.total * 90));
-      };
-      xhr.onload = () => {
-        hideSlotLoading(slot);
-        if (xhr.status !== 200) { toast('Conversion failed: ' + xhr.statusText, 'error'); return; }
-        try {
-          const data = JSON.parse(xhr.responseText);
-          setSlotSource(slot, { type: 'gdrive', filename: fileName, src: data.streamUrl });
-        } catch { toast('Bad server response', 'error'); }
-      };
-      xhr.onerror = () => { hideSlotLoading(slot); toast('Upload error', 'error'); };
-      xhr.send(form);
-    }
-  } catch(e) {
-    hideSlotLoading(slot);
-    toast('Drive error: ' + e.message, 'error');
-  }
-}
+function connectDrive() {}
 
 function showSlotLoading(slot, msg, pct) {
   const lEl = document.getElementById('loading' + slot.toUpperCase());
@@ -1336,8 +1178,5 @@ loadQueue();
   }
 })();
 </script>
-
-<!-- Load Google Identity Services (optional — for Drive support) -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
