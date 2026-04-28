@@ -205,6 +205,59 @@
   .video-info-bar.show { display:block; }
   .vi-title { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:600; color:#fff; }
   .vi-meta  { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(255,255,255,0.6); }
+
+  /* ── Mobile layout ── */
+  @media (max-width: 700px) {
+    body { overflow: auto; }
+    .app { height: auto; min-height: 100vh; }
+    .body { flex-direction: column; overflow: visible; }
+
+    /* Left panel becomes top panel */
+    .left-panel { width: 100%; max-height: none; border-right: none; border-bottom: 1px solid var(--border); overflow: visible; flex-shrink: 0; }
+
+    /* Video area stacks below */
+    .video-area { overflow: visible; min-height: 55vw; }
+    .video-wrap { height: 55vw; min-height: 200px; }
+
+    /* Controls row wraps */
+    .controls-row { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+    .tc-btn { padding: 5px 8px; font-size: 10px; }
+    .play-btn { padding: 5px 14px !important; }
+
+    /* Seekbar area */
+    .seekbar-section { padding: 6px 10px 0; }
+
+    /* Queue and clip list */
+    .clip-queue { max-height: 220px; }
+
+    /* Header */
+    header { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+    .logo { font-size: 16px; }
+    .tag { display: none; }
+    .status-bar { font-size: 10px; }
+    .nav-link { font-size: 10px; padding: 3px 8px; }
+
+    /* Form fields */
+    .fields-row { flex-direction: column; gap: 6px; }
+    .field-group { width: 100%; }
+
+    /* Kbd hints hidden on mobile */
+    .kbd-hints { display: none; }
+
+    /* Info bar wraps */
+    .info-bar { flex-wrap: wrap; gap: 4px; padding: 5px 10px; }
+    .info-chip { padding: 2px 6px; }
+    .info-label { font-size: 8px; }
+    .info-value { font-size: 9px; }
+
+    /* Panel sections */
+    .panel-section { padding: 10px 12px; }
+    .section-title { font-size: 9px; }
+
+    /* Buttons */
+    .btn { font-size: 12px; padding: 7px 12px; }
+  }
+
 </style>
 </head>
 <body>
@@ -630,12 +683,10 @@ document.addEventListener('keydown', (e) => {
 // ─── Markers ──────────────────────────────────────────────────────────────────
 function setStart() {
   if (!S.loaded) return;
-  const markedFrame    = frame();
-  const preRollFrames  = Math.round(1.5 * S.fps);
-  S.startFrame = Math.max(0, markedFrame - preRollFrames);
+  S.startFrame = frame();
   dispStart.textContent = S.startFrame;
   recalc(); updateDisplay();
-  toast('Start set: 20→19 at frame ' + markedFrame + ', auto-start → frame ' + S.startFrame + ' (−1.5s)', 'info');
+  toast('Start: frame ' + S.startFrame + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
 }
 function setEnd() {
   if (!S.loaded) return;
@@ -676,8 +727,9 @@ function addClip() {
   const center2Time = (S.center2Frame !== null && S.center2Frame > S.startFrame)
     ? ((S.center2Frame - S.startFrame) / S.fps).toFixed(4)
     : null;
+  const preRoll   = 1.5;
   const clipDur   = parseFloat(document.getElementById('clipDur').value) || 22.5;
-  const clipStart = frameToSec(S.startFrame);  // startFrame already has 1.5s pre-roll baked in from setStart()
+  const clipStart = Math.max(0, frameToSec(S.startFrame) - preRoll);
   const filename  = `${team} ${timeToCL} ${pos}.avi`;
 
   S.clips.push({
@@ -725,7 +777,7 @@ function renderQueue() {
       <div class="ci-actions">
         <button class="ci-dl" id="ci-dl-${clip.id}"
           onclick="downloadClip(${clip.id})"
-          ${clip.status === 'processing' ? 'disabled' : ''}>
+          ${clip.status !== 'ready' ? 'disabled' : ''}>
           ${clip.status === 'queued' ? '⚙ PROCESS' : clip.status === 'ready' ? '⬇ DL' : clip.status === 'processing' ? '...' : '⚙ RETRY'}
         </button>
         <button class="ci-del" onclick="removeClip(${clip.id})">✕</button>
@@ -820,17 +872,26 @@ async function downloadClip(id) {
 // ─── Process all ──────────────────────────────────────────────────────────────
 processAllBtn.addEventListener('click', async () => {
   processAllBtn.disabled = true;
+
+  // Step 1 — process any unprocessed clips sequentially
   for (const clip of S.clips) {
     if (clip.status !== 'ready') {
-      await downloadClip(clip.id);
-      await new Promise(r => setTimeout(r, 600));
-    } else {
-      window.location = '/api/download-clip/' + encodeURIComponent(clip.filename);
+      await processClip(clip.id);
+      await new Promise(r => setTimeout(r, 400));
+    }
+  }
+
+  // Step 2 — download all ready clips with a small delay between each
+  // so the browser doesn't block multiple simultaneous downloads
+  for (const clip of S.clips) {
+    if (clip.status === 'ready') {
+      triggerDownload(clip.id);
       await new Promise(r => setTimeout(r, 800));
     }
   }
+
   processAllBtn.disabled = false;
-  toast('All clips processed!', 'success');
+  toast('All clips processed and downloaded!', 'success');
 });
 
 // ─── Startup check ────────────────────────────────────────────────────────────

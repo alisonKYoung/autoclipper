@@ -176,19 +176,16 @@
   .file-input-btn:hover { border-color:var(--accent); color:var(--accent); }
 
   /* Google Drive section */
-  .gdrive-connect-section { margin-bottom:8px; }
-  .gdrive-status-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .gdrive-info { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); margin-bottom:6px; line-height:1.5; }
+  .gdrive-folder-row { display:flex; gap:5px; margin-bottom:6px; }
+  .gdrive-folder-row input { flex:1; margin-bottom:0; font-size:10px; }
+  .gdrive-folder-row button { background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:0 10px; cursor:pointer; font-size:12px; transition:all 0.15s; }
+  .gdrive-folder-row button:hover { border-color:var(--accent); }
   .gdrive-file-list { max-height:100px; overflow-y:auto; background:var(--bg); border:1px solid var(--border); border-radius:4px; margin-bottom:6px; }
   .gd-item { padding:5px 9px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); cursor:pointer; border-bottom:1px solid rgba(42,47,61,0.5); transition:all 0.15s; word-break:break-all; display:flex; align-items:center; gap:6px; }
   .gd-item:hover { background:var(--surface2); color:var(--text); }
   .gd-item.selected { background:rgba(232,176,0,0.1); color:var(--accent); }
   .gd-icon { opacity:0.6; flex-shrink:0; }
-  .gdrive-pick-btn { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:4px; background:var(--surface2); color:var(--text); cursor:pointer; font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1px; transition:all 0.15s; margin-bottom:6px; }
-  .gdrive-pick-btn:hover { border-color:var(--accent); color:var(--accent); }
-  .gdrive-pick-btn:disabled { opacity:0.35; cursor:not-allowed; }
-  .gdrive-folder-name { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--muted); margin-bottom:6px; padding:4px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:3px; word-break:break-all; display:none; }
-  .gdrive-folder-name.show { display:block; }
-  .gdrive-folder-name span { color:var(--accent); }
 
   /* Offset */
   .offset-row { display:flex; align-items:center; gap:8px; }
@@ -372,6 +369,33 @@
   .slot-loading-text { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--muted); }
   .slot-loading-bar { width:160px; height:2px; background:var(--border); border-radius:1px; }
   .slot-loading-fill { height:100%; width:0%; background:var(--accent); border-radius:1px; transition:width 0.3s; }
+
+  /* ── Mobile layout ── */
+  @media (max-width: 700px) {
+    body { overflow: auto; }
+    .app { height: auto; min-height: 100vh; }
+    .body { flex-direction: column; overflow: visible; }
+    .left-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); overflow: visible; }
+    .video-area { overflow: visible; }
+    .dual-video { flex-direction: column; height: auto; }
+    .video-slot { flex: none; height: 42vw; min-height: 160px; border-bottom: 2px solid var(--border); }
+    .video-slot:last-child { border-bottom: none; }
+    .transport { padding: 8px 10px; }
+    .transport-controls { gap: 4px; }
+    .tc-btn { padding: 5px 7px; font-size: 10px; }
+    .time-display { width: 100%; margin-left: 0; margin-top: 6px; justify-content: space-between; font-size: 10px; }
+    .markers-bar { gap: 4px; padding: 5px 10px; }
+    .mbar-chip { padding: 2px 5px; }
+    .mbar-label { font-size: 8px; }
+    .mbar-value { font-size: 9px; }
+    .kbd-hints { display: none; }
+    header { padding: 8px 12px; gap: 8px; }
+    .logo { font-size: 16px; }
+    .tag { display: none; }
+    .status-bar { display: none; }
+    .panel-section { padding: 10px 12px; }
+  }
+
 </style>
 </head>
 <body>
@@ -417,19 +441,21 @@
           </div>
           <!-- Google Drive source -->
           <div class="source-panel" id="srcA-gdrive">
-            <div class="gdrive-connect-section">
-              <div class="gdrive-status-row">
-                <div class="connected-badge" id="driveStatusBadge" style="display:none">Drive Connected</div>
-              </div>
-              <button class="google-btn" id="gdriveSignInBtn" style="margin-bottom:6px;">
+            <div id="gdriveAuthShared" style="display:block">
+              <button class="google-btn" id="gdriveSignInBtn">
                 <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
                 Connect Google Drive
               </button>
             </div>
-            <button class="gdrive-pick-btn" id="pickFolderA" disabled>📁 Pick Folder for Clip A</button>
-            <div class="gdrive-folder-name" id="folderNameA">Folder: <span id="folderNameAText"></span></div>
-            <div class="gdrive-file-list" id="gdriveListA">
-              <div class="qp-empty">Connect Drive, then pick a folder</div>
+            <div id="gdriveConnectedShared" style="display:none">
+              <div class="connected-badge" id="gdriveUserBadge">Drive Connected</div>
+              <div class="gdrive-folder-row">
+                <input type="text" id="gdriveFolderA" placeholder="Folder name (e.g. clips)" />
+                <button id="gdriveBrowseA" title="Browse">🔍</button>
+              </div>
+              <div class="gdrive-file-list" id="gdriveListA">
+                <div class="qp-empty">Enter a folder name and browse</div>
+              </div>
             </div>
           </div>
         </div>
@@ -456,19 +482,21 @@
             <input type="file" id="fileB" accept="video/*" style="display:none">
           </div>
           <div class="source-panel" id="srcB-gdrive">
-            <div class="gdrive-connect-section">
-              <div class="gdrive-status-row">
-                <div class="connected-badge" id="driveStatusBadgeB" style="display:none">Drive Connected</div>
-              </div>
-              <button class="google-btn" id="gdriveSignInBtnB" style="margin-bottom:6px;">
+            <div id="gdriveAuthSharedB" style="display:block">
+              <button class="google-btn" id="gdriveSignInBtnB">
                 <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
                 Connect Google Drive
               </button>
             </div>
-            <button class="gdrive-pick-btn" id="pickFolderB" disabled>📁 Pick Folder for Clip B</button>
-            <div class="gdrive-folder-name" id="folderNameB">Folder: <span id="folderNameBText"></span></div>
-            <div class="gdrive-file-list" id="gdriveListB">
-              <div class="qp-empty">Connect Drive, then pick a folder</div>
+            <div id="gdriveConnectedSharedB" style="display:none">
+              <div class="connected-badge">Drive Connected</div>
+              <div class="gdrive-folder-row">
+                <input type="text" id="gdriveFolderB" placeholder="Folder name (e.g. clips)" />
+                <button id="gdriveBrowseB" title="Browse">🔍</button>
+              </div>
+              <div class="gdrive-file-list" id="gdriveListB">
+                <div class="qp-empty">Enter a folder name and browse</div>
+              </div>
             </div>
           </div>
         </div>
@@ -801,128 +829,107 @@ async function handleLocalFile(slot, file) {
 }
 
 // ───────────────────────────────────────────────────────────
-// GOOGLE DRIVE  — Google Identity Services + Picker API
-//
-// FILL IN THESE TWO VALUES (see setup guide):
-const GDRIVE_CLIENT_ID  = '995043690566-pbslh2o02d0n1upmj4o605p91uqkuaot.apps.googleusercontent.com';
-const GDRIVE_API_KEY    = 'AIzaSyBS8BYa5kyke-D69ArAgb2qiNQd1KhJSnQ';
-// The email address of the specific Google account to lock sign-in to:
-const GDRIVE_LOGIN_HINT = 'softwarescouting@citruscircuits.org';
-// ───────────────────────────────────────────────────────────
-
+// GOOGLE DRIVE  — shared token, any account, shared drives
+// ── Fill in your OAuth Client ID below ──────────────────────
+const GDRIVE_CLIENT_ID = '995043690566-pbslh2o02d0n1upmj4o605p91uqkuaot.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
-let driveToken   = null;   // shared across both slots once authed
-let pickerApiLoaded = false;
+// ────────────────────────────────────────────────────────────
 
-// Load the Picker API via gapi
-function ensurePickerLoaded() {
-  return new Promise((resolve, reject) => {
-    if (pickerApiLoaded) { resolve(); return; }
-    if (!window.gapi) { reject(new Error('gapi not loaded')); return; }
-    gapi.load('picker', () => { pickerApiLoaded = true; resolve(); });
+let driveToken = null; // shared across both slots
+
+function onDriveConnected() {
+  // Show connected state on both slot panels
+  ['gdriveAuthShared','gdriveAuthSharedB'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   });
+  ['gdriveConnectedShared','gdriveConnectedSharedB'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'block';
+  });
+  const badge = document.getElementById('gdriveUserBadge');
+  if (badge) badge.textContent = 'Drive Connected';
 }
 
-// Auth — shared token, locked to GDRIVE_LOGIN_HINT
-function connectDrive(onSuccess) {
+function connectDrive(afterConnect) {
   if (!window.google?.accounts?.oauth2) {
-    toast('Google Identity Services not loaded.', 'error', 5000);
+    toast('Google API not loaded — make sure your Client ID is set and the GIS script is loaded.', 'error', 6000);
     return;
   }
   const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id:   GDRIVE_CLIENT_ID,
-    scope:       GDRIVE_SCOPE,
-    login_hint:  GDRIVE_LOGIN_HINT,   // pre-fills & locks the account chooser
-    prompt:      driveToken ? '' : 'select_account',
+    client_id: GDRIVE_CLIENT_ID,
+    scope: GDRIVE_SCOPE,
+    // No login_hint — allow any Google account
     callback: resp => {
       if (resp.error) { toast('Drive auth failed: ' + resp.error, 'error'); return; }
       driveToken = resp.access_token;
-      // Show connected badge on both panels
-      document.getElementById('driveStatusBadge').style.display  = 'inline-flex';
-      document.getElementById('driveStatusBadgeB').style.display = 'inline-flex';
-      // Show connect button as "re-auth" dimmed on both sides, enable pickers
-      document.getElementById('pickFolderA').disabled = false;
-      document.getElementById('pickFolderB').disabled = false;
-      document.getElementById('gdriveSignInBtn').textContent  = '✓ ' + GDRIVE_LOGIN_HINT;
-      document.getElementById('gdriveSignInBtnB').textContent = '✓ ' + GDRIVE_LOGIN_HINT;
-      document.getElementById('gdriveSignInBtn').style.opacity  = '0.5';
-      document.getElementById('gdriveSignInBtnB').style.opacity = '0.5';
-      toast('Drive connected as ' + GDRIVE_LOGIN_HINT, 'success');
-      if (onSuccess) onSuccess();
+      onDriveConnected();
+      toast('Google Drive connected!', 'success');
+      if (afterConnect) afterConnect();
     },
   });
   tokenClient.requestAccessToken();
 }
 
-document.getElementById('gdriveSignInBtn').addEventListener('click',  () => connectDrive());
+// Both sign-in buttons trigger the same shared auth
+document.getElementById('gdriveSignInBtn').addEventListener('click', () => connectDrive());
 document.getElementById('gdriveSignInBtnB').addEventListener('click', () => connectDrive());
 
-// Open the Picker for a given slot and populate that slot's file list
-async function openFolderPicker(slot) {
-  if (!driveToken) { connectDrive(() => openFolderPicker(slot)); return; }
-  try {
-    await ensurePickerLoaded();
-  } catch(e) {
-    toast('Picker API failed to load: ' + e.message, 'error');
-    return;
-  }
+async function browseDriveFolder(slot) {
+  if (!driveToken) { connectDrive(() => browseDriveFolder(slot)); return; }
+  const folderInput = document.getElementById('gdriveFolder' + slot.toUpperCase());
+  const listEl      = document.getElementById('gdriveList'  + slot.toUpperCase());
+  const folderName  = folderInput.value.trim();
+  if (!folderName) { toast('Enter a folder name first.', 'error'); return; }
 
-  const picker = new google.picker.PickerBuilder()
-    .setOAuthToken(driveToken)
-    .setDeveloperKey(GDRIVE_API_KEY)
-    .setTitle('Pick a folder')
-    .addView(
-      new google.picker.DocsView(google.picker.ViewId.FOLDERS)
-        .setSelectFolderEnabled(true)
-        .setMimeTypes('application/vnd.google-apps.folder')
-    )
-    .setCallback(data => {
-      if (data.action !== google.picker.Action.PICKED) return;
-      const folder = data.docs[0];
-      listFolderContents(slot, folder.id, folder.name);
-    })
-    .build();
-  picker.setVisible(true);
-}
-
-document.getElementById('pickFolderA').addEventListener('click', () => openFolderPicker('a'));
-document.getElementById('pickFolderB').addEventListener('click', () => openFolderPicker('b'));
-
-// Fetch video files inside selected folder and render list
-async function listFolderContents(slot, folderId, folderName) {
-  const listEl = document.getElementById('gdriveList' + slot.toUpperCase());
-  const nameEl = document.getElementById('folderName' + slot.toUpperCase());
-  const nameTextEl = document.getElementById('folderName' + slot.toUpperCase() + 'Text');
-  listEl.innerHTML = '<div class="qp-empty">Loading...</div>';
-  nameTextEl.textContent = folderName;
-  nameEl.classList.add('show');
+  listEl.innerHTML = '<div class="qp-empty">Searching...</div>';
 
   try {
-    let allFiles = [], pageToken = '';
-    do {
-      const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-      const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,size)&orderBy=name&pageSize=100`
-        + (pageToken ? '&pageToken=' + pageToken : '');
-      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + driveToken } });
-      if (r.status === 401) { driveToken = null; connectDrive(() => listFolderContents(slot, folderId, folderName)); return; }
-      const d = await r.json();
-      allFiles = allFiles.concat(d.files || []);
-      pageToken = d.nextPageToken || '';
-    } while (pageToken);
+    // Search My Drive AND shared drives (supportsAllDrives=true, includeItemsFromAllDrives=true)
+    const q = encodeURIComponent(
+      "name='" + folderName.replace(/'/g, "\'") + "' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    );
+    const searchResp = await fetch(
+      'https://www.googleapis.com/drive/v3/files?q=' + q +
+      '&fields=files(id,name,driveId)&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives',
+      { headers: { Authorization: 'Bearer ' + driveToken } }
+    );
+    if (searchResp.status === 401) { driveToken = null; connectDrive(() => browseDriveFolder(slot)); return; }
+    const searchData = await searchResp.json();
+    if (!searchData.files?.length) {
+      listEl.innerHTML = '<div class="qp-empty">Folder not found. Check the name and try again.</div>';
+      return;
+    }
+    const folder = searchData.files[0];
+    const folderId = folder.id;
 
-    const videos = allFiles.filter(f =>
+    // List video files — include shared drive items
+    const listResp = await fetch(
+      "https://www.googleapis.com/drive/v3/files?q='" + folderId + "'+in+parents+and+trashed%3Dfalse" +
+      '&fields=files(id,name,mimeType,size)&orderBy=name&pageSize=200' +
+      '&includeItemsFromAllDrives=true&supportsAllDrives=true',
+      { headers: { Authorization: 'Bearer ' + driveToken } }
+    );
+    const listData = await listResp.json();
+    const videos = (listData.files || []).filter(f =>
       f.mimeType?.startsWith('video/') || /\.(mp4|avi|mkv|webm|mov|m4v)$/i.test(f.name)
     );
 
-    if (!videos.length) { listEl.innerHTML = '<div class="qp-empty">No video files in this folder.</div>'; return; }
+    if (!videos.length) {
+      listEl.innerHTML = '<div class="qp-empty">No video files in this folder.</div>';
+      return;
+    }
 
     listEl.innerHTML = '';
-    const currentSrc = slot === 'a' ? S.sourceA : S.sourceB;
     videos.forEach(file => {
       const div = document.createElement('div');
       div.className = 'gd-item';
-      div.innerHTML = `<span class="gd-icon">🎬</span><span>${file.name}</span>`;
-      if (currentSrc?.filename === file.name) div.classList.add('selected');
+      div.innerHTML = '<span class="gd-icon">🎬</span><span>' + file.name + '</span>';
+      div.dataset.fileId   = file.id;
+      div.dataset.fileName = file.name;
+      // Restore highlight if already selected
+      const cur = slot === 'a' ? S.sourceA : S.sourceB;
+      if (cur && cur.filename === file.name) div.classList.add('selected');
       div.addEventListener('click', () => {
         listEl.querySelectorAll('.gd-item').forEach(i => i.classList.remove('selected'));
         div.classList.add('selected');
@@ -935,28 +942,60 @@ async function listFolderContents(slot, folderId, folderName) {
   }
 }
 
+document.getElementById('gdriveBrowseA').addEventListener('click', () => browseDriveFolder('a'));
+document.getElementById('gdriveBrowseB').addEventListener('click', () => browseDriveFolder('b'));
+
 async function loadGdriveFile(slot, fileId, fileName) {
+  if (!driveToken) { toast('Drive not connected.', 'error'); return; }
   showSlotLoading(slot, 'Downloading from Drive...', 0);
   try {
     const resp = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true',
       { headers: { Authorization: 'Bearer ' + driveToken } }
     );
-    if (!resp.ok) throw new Error('Drive HTTP ' + resp.status);
-    const reader = resp.body.getReader();
-    const total  = parseInt(resp.headers.get('Content-Length') || '0');
-    const chunks = [];
-    let received = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      if (total) showSlotLoading(slot, 'Downloading...', Math.round(received / total * 100));
+    if (resp.status === 401) { driveToken = null; hideSlotLoading(slot); connectDrive(() => loadGdriveFile(slot, fileId, fileName)); return; }
+    if (!resp.ok) throw new Error('Drive fetch ' + resp.status);
+
+    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+    const nativeExts = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v']);
+
+    if (nativeExts.has(ext)) {
+      // Native format — blob URL directly
+      const reader = resp.body.getReader();
+      const total  = parseInt(resp.headers.get('Content-Length') || '0');
+      const chunks = []; let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); received += value.length;
+        if (total) showSlotLoading(slot, 'Downloading...', Math.round(received / total * 100));
+      }
+      const src = URL.createObjectURL(new Blob(chunks));
+      hideSlotLoading(slot);
+      setSlotSource(slot, { type: 'gdrive', filename: fileName, src });
+    } else {
+      // Non-native (AVI, MKV…) — pipe through server for transcoding
+      showSlotLoading(slot, 'Uploading for conversion...', 10);
+      const blob = await resp.blob();
+      const form = new FormData();
+      form.append('file', blob, fileName);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload-for-compare');
+      xhr.upload.onprogress = ev => {
+        if (ev.lengthComputable)
+          showSlotLoading(slot, 'Converting...', Math.round(ev.loaded / ev.total * 90));
+      };
+      xhr.onload = () => {
+        hideSlotLoading(slot);
+        if (xhr.status !== 200) { toast('Conversion failed: ' + xhr.statusText, 'error'); return; }
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setSlotSource(slot, { type: 'gdrive', filename: fileName, src: data.streamUrl });
+        } catch { toast('Bad server response', 'error'); }
+      };
+      xhr.onerror = () => { hideSlotLoading(slot); toast('Upload error', 'error'); };
+      xhr.send(form);
     }
-    const src = URL.createObjectURL(new Blob(chunks));
-    hideSlotLoading(slot);
-    setSlotSource(slot, { type: 'gdrive', filename: fileName, src });
   } catch(e) {
     hideSlotLoading(slot);
     toast('Drive error: ' + e.message, 'error');
@@ -1284,8 +1323,7 @@ loadQueue();
 })();
 </script>
 
-<!-- Google APIs: Identity Services + gapi (for Picker) -->
+<!-- Load Google Identity Services (optional — for Drive support) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://apis.google.com/js/api.js" async defer></script>
 </body>
 </html>

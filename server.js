@@ -37,6 +37,15 @@ const uploadMiddleware = multer({
 
 // ─── Binary resolution ────────────────────────────────────────────────────────
 function findBinary(name) {
+  // 1. Try ffmpeg-static npm package (auto-installs correct binary for platform)
+  if (name === 'ffmpeg') {
+    try {
+      const p = require('ffmpeg-static');
+      if (p && fs.existsSync(p)) { console.log('ffmpeg: ffmpeg-static →', p); return p; }
+    } catch {}
+  }
+
+  // 2. Common system paths
   const isWin = process.platform === 'win32';
   const candidates = isWin
     ? [
@@ -47,8 +56,8 @@ function findBinary(name) {
         name,
       ]
     : [
-        `/usr/bin/${name}`,
         `/usr/local/bin/${name}`,
+        `/usr/bin/${name}`,
         `/opt/homebrew/bin/${name}`,
         path.join(os.homedir(), '.local/bin', name),
         `/root/.local/bin/${name}`,
@@ -59,8 +68,8 @@ function findBinary(name) {
     try { fs.accessSync(c, fs.constants.X_OK); console.log(`${name}: found at ${c}`); return c; } catch {}
   }
 
-  console.warn(`WARNING: ${name} not found — make sure ffmpeg is installed (apt-get install ffmpeg)`);
-  return name; // last resort, let PATH resolve it
+  console.warn(`WARNING: ${name} not found — install it or run: npm install ffmpeg-static`);
+  return name; // last resort, let PATH try
 }
 
 function findYtDlp() {
@@ -276,7 +285,7 @@ app.post('/api/clip', (req, res) => {
     '-y', '-ss', String(startTime), '-i', srcJob.filePath,
     '-t', String(duration),
     '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
-    '-c:a', 'aac', '-b:a', '128k',
+    '-an',
     '-movflags', '+faststart',
     outPath,
   ]);
@@ -326,7 +335,7 @@ app.get('/api/download-clip/:filename', (req, res) => {
   const proc = spawn(FFMPEG, [
     '-i', mp4Path,
     '-c:v', 'mpeg4', '-q:v', '5',
-    '-c:a', 'libmp3lame', '-b:a', '128k',
+    '-an',
     '-f', 'avi', 'pipe:1',
   ]);
   proc.stdout.pipe(res);
@@ -379,7 +388,7 @@ app.post('/api/upload-for-compare', uploadMiddleware.single('file'), (req, res) 
   const proc = spawn(FFMPEG, [
     '-y', '-i', inPath,
     '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
-    '-c:a', 'aac', '-b:a', '128k',
+    '-an',
     '-movflags', '+faststart',
     outPath,
   ]);
@@ -405,8 +414,8 @@ app.get('/compare', (req, res) => res.sendFile(path.join(__dirname, 'public', 'c
 
 app.get('/{*path}', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-const PORT = process.env.PORT || 30000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`\n🤖 FRC 1678 Auto Clipper → http://localhost:${PORT} hiii`);
+  console.log(`\n🤖 FRC 1678 Auto Clipper → http://localhost:${PORT}`);
   console.log('Run GET /api/check to verify ffmpeg + yt-dlp are working\n');
 });
