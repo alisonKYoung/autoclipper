@@ -851,24 +851,38 @@ function onDriveConnected() {
   if (badge) badge.textContent = 'Drive Connected';
 }
 
+// Token client is created once and reused — recreating it on every click
+// causes the popup to complete but the callback to silently not fire.
+let _tokenClient = null;
+
 function connectDrive(afterConnect) {
   if (!window.google?.accounts?.oauth2) {
-    toast('Google API not loaded — make sure your Client ID is set and the GIS script is loaded.', 'error', 6000);
+    toast('Google sign-in not loaded yet — wait a moment and try again.', 'error', 6000);
     return;
   }
-  const tokenClient = google.accounts.oauth2.initTokenClient({
+  // Always create fresh so the afterConnect closure is current
+  _tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GDRIVE_CLIENT_ID,
     scope: GDRIVE_SCOPE,
-    // No login_hint — allow any Google account
     callback: resp => {
-      if (resp.error) { toast('Drive auth failed: ' + resp.error, 'error'); return; }
+      if (resp.error || resp.error_description) {
+        const msg = resp.error_description || resp.error;
+        toast('Drive auth failed: ' + msg, 'error', 8000);
+        console.error('Drive auth error:', resp);
+        return;
+      }
+      if (!resp.access_token) {
+        toast('Drive auth: no token returned — check your Client ID and authorized origins.', 'error', 8000);
+        console.error('Drive auth empty response:', resp);
+        return;
+      }
       driveToken = resp.access_token;
       onDriveConnected();
       toast('Google Drive connected!', 'success');
       if (afterConnect) afterConnect();
     },
   });
-  tokenClient.requestAccessToken();
+  _tokenClient.requestAccessToken({ prompt: driveToken ? '' : 'consent' });
 }
 
 // Both sign-in buttons trigger the same shared auth
