@@ -185,6 +185,8 @@
   .ci-actions { display:flex; gap:5px; }
   .ci-dl { flex:1; background:var(--green); color:#000; border:none; border-radius:3px; padding:5px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:11px; letter-spacing:1px; cursor:pointer; text-transform:uppercase; }
   .ci-dl:disabled { opacity:0.4; cursor:not-allowed; }
+  .ci-pr { flex:1; background:var(--accent); color:#000; border:none; border-radius:3px; padding:5px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:11px; letter-spacing:1px; cursor:pointer; text-transform:uppercase; }
+  .ci-pr:disabled { opacity:0.4; cursor:not-allowed; }
   .ci-del { background:transparent; color:var(--red); border:1px solid rgba(255,61,61,0.4); border-radius:3px; padding:5px 8px; font-family:'Share Tech Mono',monospace; font-size:10px; cursor:pointer; }
   .ci-del:hover { background:var(--red); color:#fff; border-color:var(--red); }
 
@@ -305,8 +307,6 @@
           <div style="flex:1;height:1px;background:var(--border);"></div> OR <div style="flex:1;height:1px;background:var(--border);"></div>
         </div>
 
-        <label>LOCAL FILE</label>
-        <input type="file" id="localFile" accept="video/*" style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;margin-bottom:8px;width:100%;" />
       </div>
 
       <div class="sb-section">
@@ -357,7 +357,7 @@
           <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
-          <p>FETCH A YOUTUBE VIDEO OR LOAD LOCAL FILE</p>
+          <p>FETCH A YOUTUBE VIDEO</p>
         </div>
         <video id="videoPlayer" tabindex="-1"></video>
         <div class="video-info-bar" id="videoInfoBar">
@@ -424,7 +424,6 @@ const S = {
   center2Frame: null,
   clips: [],         // { id, team, pos, timeToCL, center2Time, filename, clipStart, clipDur, sourceJobId, clipJobId, status }
   sourceJobId: null, // yt-dlp download job id
-  isLocalFile: false,
   localObjectUrl: null,
 };
 
@@ -435,7 +434,6 @@ function saveQueue() {
     timeToCL: c.timeToCL, center2Time: c.center2Time ?? null,
     filename: c.filename, clipStart: c.clipStart, clipDur: c.clipDur,
     startFrame: c.startFrame, endFrame: c.endFrame, center2Frame: c.center2Frame ?? null,
-    sourceJobId: c.sourceJobId, isLocalFile: c.isLocalFile,
     status: c.status === 'processing' ? 'queued' : c.status,
     clipJobId: c.status === 'ready' ? c.clipJobId : null,
   }));
@@ -598,7 +596,6 @@ document.getElementById('loadYtBtn').addEventListener('click', async () => {
     });
     const { jobId } = await dlRes.json();
     S.sourceJobId = jobId;
-    S.isLocalFile = false;
     await pollJob(jobId, (j) => {
       dlMsg.textContent  = j.message;
       dlBar.style.width  = j.progress + '%';
@@ -615,20 +612,6 @@ document.getElementById('loadYtBtn').addEventListener('click', async () => {
   }
 });
 
-// ─── Local file ───────────────────────────────────────────────────────────────
-document.getElementById('localFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (S.localObjectUrl) URL.revokeObjectURL(S.localObjectUrl);
-  S.localObjectUrl = URL.createObjectURL(file);
-  S.isLocalFile = true;
-  S.sourceJobId = null;
-  viTitle.textContent = file.name;
-  viMeta.textContent = 'Local file';
-  videoInfoBar.classList.add('show');
-  setStatus('LOADING...', 'busy');
-  loadVideoSrc(S.localObjectUrl);
-});
 
 // ─── Poll job ─────────────────────────────────────────────────────────────────
 function pollJob(jobId, onProgress) {
@@ -683,7 +666,7 @@ document.addEventListener('keydown', (e) => {
 // ─── Markers ──────────────────────────────────────────────────────────────────
 function setStart() {
   if (!S.loaded) return;
-  S.startFrame = frame();
+  S.startFrame = frame() - Math.round(1.5 * S.fps);
   dispStart.textContent = S.startFrame;
   recalc(); updateDisplay();
   toast('Start: frame ' + S.startFrame + ' (' + video.currentTime.toFixed(4) + 's)', 'info');
@@ -727,9 +710,8 @@ function addClip() {
   const center2Time = (S.center2Frame !== null && S.center2Frame > S.startFrame)
     ? ((S.center2Frame - S.startFrame) / S.fps).toFixed(4)
     : null;
-  const preRoll   = 1.5;
   const clipDur   = parseFloat(document.getElementById('clipDur').value) || 22.5;
-  const clipStart = Math.max(0, frameToSec(S.startFrame) - preRoll);
+  const clipStart = Math.max(0, frameToSec(S.startFrame));
   const filename  = `${team} ${timeToCL} ${pos}.avi`;
 
   S.clips.push({
@@ -739,7 +721,6 @@ function addClip() {
     startFrame: S.startFrame, endFrame: S.endFrame,
     center2Frame: S.center2Frame,
     sourceJobId: S.sourceJobId,
-    isLocalFile: S.isLocalFile,
     localSrc: S.localObjectUrl,
     status: 'queued',
     clipJobId: null,
@@ -778,8 +759,12 @@ function renderQueue() {
         <button class="ci-dl" id="ci-dl-${clip.id}"
           onclick="downloadClip(${clip.id})"
           ${clip.status !== 'ready' ? 'disabled' : ''}>
-          ${clip.status === 'queued' ? '⚙ PROCESS' : clip.status === 'ready' ? '⬇ DL' : clip.status === 'processing' ? '...' : '⚙ RETRY'}
+          ${clip.status !== 'processing' ? '⬇ DL' : '...'}
         </button>
+        <button class="ci-pr" id="ci-pr-${clip.id}"
+          onclick="processClip(${clip.id})"
+          ${clip.status!=='queued'} ? 'disabled': ''}>
+          ${clip.status==='queued' ? '⚙ PROCESS': '⚙ PROCESS'}
         <button class="ci-del" onclick="removeClip(${clip.id})">✕</button>
       </div>
     `;
@@ -794,14 +779,19 @@ function statusLabel(s) {
 function updateClipUI(clip) {
   const statusEl = document.getElementById('ci-status-' + clip.id);
   const dlEl     = document.getElementById('ci-dl-' + clip.id);
+  const prEl = document.getElementById('ci-pr-' + clip.id);
   const progWrap = document.getElementById('prog-wrap-' + clip.id);
   const progFill = document.getElementById('prog-fill-' + clip.id);
   if (!statusEl) return;
   statusEl.textContent = statusLabel(clip.status);
   statusEl.className = 'ci-status ' + clip.status;
   if (dlEl) {
-    dlEl.disabled = (clip.status === 'processing');
-    dlEl.textContent = clip.status === 'ready' ? '⬇ DL' : clip.status === 'processing' ? '...' : clip.status === 'error' ? '⚙ RETRY' : '⚙ PROCESS';
+    dlEl.disabled = (clip.status !== 'ready');
+    dlEl.textContent = clip.status === 'ready' ? '⬇ DL' : clip.status === 'processing' ? '...' : clip.status === 'error' ? '⚙ RETRY' : '⬇ DL';
+  }
+  if (prEl) {
+    prEl.disabled = (clip.status !== 'queued');
+    prEl.textContent = clip.status === 'queued' ? '⚙ PROCESS' : clip.status === 'processing' ? '...' : clip.status === 'error' ? '⚙ RETRY' : '⚙ PROCESS';
   }
   if (progWrap) progWrap.style.display = clip.status === 'processing' ? 'block' : 'none';
   if (progFill && clip.progress != null) progFill.style.width = clip.progress + '%';
@@ -813,27 +803,14 @@ function removeClip(id) {
   saveQueue();
 }
 
-// ─── Process + download a clip ────────────────────────────────────────────────
-async function downloadClip(id) {
+async function processClip(id) {
   const clip = S.clips.find(c => c.id === id);
   if (!clip) return;
-
-  // If already ready, just download
-  if (clip.status === 'ready' && clip.clipJobId) {
-    window.location = '/api/download-clip/' + encodeURIComponent(clip.filename);
-    return;
-  }
-
-  if (clip.isLocalFile) {
-    toast('Local file clipping requires the server to have access to the file. Use yt-dlp method for server-side clipping.', 'error', 5000);
-    return;
-  }
 
   if (!clip.sourceJobId) {
     toast('No server-side video source. Re-fetch via YouTube URL to use server clipping.', 'error', 5000);
     return;
   }
-
   clip.status = 'processing';
   clip.progress = 0;
   updateClipUI(clip);
@@ -860,12 +837,22 @@ async function downloadClip(id) {
     clip.status = 'ready';
     updateClipUI(clip);
     toast('Ready: ' + clip.filename, 'success');
-    // Auto-download
-    window.location = '/api/download-clip/' + encodeURIComponent(clip.filename);
   } catch(e) {
     clip.status = 'error';
     updateClipUI(clip);
     toast('Clip failed: ' + e.message, 'error');
+  }
+}
+
+// ─── Process + download a clip ────────────────────────────────────────────────
+async function downloadClip(id) {
+  const clip = S.clips.find(c => c.id === id);
+  if (!clip) return;
+
+  // If already ready, just download
+  if (clip.status === 'ready' && clip.clipJobId) {
+    window.location = '/api/download-clip/' + encodeURIComponent(clip.filename);
+    return;
   }
 }
 
@@ -885,7 +872,7 @@ processAllBtn.addEventListener('click', async () => {
   // so the browser doesn't block multiple simultaneous downloads
   for (const clip of S.clips) {
     if (clip.status === 'ready') {
-      triggerDownload(clip.id);
+      downloadClip(clip.id);
       await new Promise(r => setTimeout(r, 800));
     }
   }
