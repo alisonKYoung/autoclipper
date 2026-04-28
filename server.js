@@ -37,15 +37,6 @@ const uploadMiddleware = multer({
 
 // ─── Binary resolution ────────────────────────────────────────────────────────
 function findBinary(name) {
-  // 1. Try ffmpeg-static npm package (auto-installs correct binary for platform)
-  if (name === 'ffmpeg') {
-    try {
-      const p = require('ffmpeg-static');
-      if (p && fs.existsSync(p)) { console.log('ffmpeg: ffmpeg-static →', p); return p; }
-    } catch {}
-  }
-
-  // 2. Common system paths
   const isWin = process.platform === 'win32';
   const candidates = isWin
     ? [
@@ -56,8 +47,8 @@ function findBinary(name) {
         name,
       ]
     : [
-        `/usr/local/bin/${name}`,
         `/usr/bin/${name}`,
+        `/usr/local/bin/${name}`,
         `/opt/homebrew/bin/${name}`,
         path.join(os.homedir(), '.local/bin', name),
         `/root/.local/bin/${name}`,
@@ -68,8 +59,8 @@ function findBinary(name) {
     try { fs.accessSync(c, fs.constants.X_OK); console.log(`${name}: found at ${c}`); return c; } catch {}
   }
 
-  console.warn(`WARNING: ${name} not found — install it or run: npm install ffmpeg-static`);
-  return name; // last resort, let PATH try
+  console.warn(`WARNING: ${name} not found — make sure ffmpeg is installed (apt-get install ffmpeg)`);
+  return name; // last resort, let PATH resolve it
 }
 
 function findYtDlp() {
