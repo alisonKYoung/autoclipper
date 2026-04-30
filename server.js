@@ -11,9 +11,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// NOTE: Cross-Origin-Opener-Policy: same-origin is intentionally NOT set globally.
+// Setting it severs window.opener in OAuth popups — the Google auth page redirects
+// back to /compare, but COOP causes Chrome to put the popup in a separate browsing
+// context group, so window.opener is null and postMessage never reaches the main page.
+// The popup then behaves like a new tab (no opener) and window.close() closes it
+// visibly as a tab instead of silently as a popup.
+// Only set COOP/COEP if you actually need SharedArrayBuffer — this app doesn't.
 app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   next();
 });
 

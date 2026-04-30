@@ -643,7 +643,7 @@
 
 <div class="toast" id="toast"></div>
 <!-- Google APIs: GIS for OAuth, gapi for Picker UI -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- gapi for Google Picker UI -->
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <script>
 // ───────────────────────────────────────────────────────────
@@ -661,6 +661,55 @@ function parseClipName(filename) {
     position: m[3],
   };
 }
+
+// ── OAuth redirect intercept ──────────────────────────────────────────────────
+// When Google redirects the popup back to this page with #access_token=... in
+// the URL hash, this IIFE detects it, posts the token to window.opener (the
+// main compare tab), then closes the popup.
+//
+// CRITICAL REQUIREMENT: The server must NOT send:
+//   Cross-Origin-Opener-Policy: same-origin
+// That header places the popup in an isolated browsing context group, nulling
+// window.opener so postMessage never reaches the main page and window.close()
+// closes a full tab instead of a popup. See server.js.
+(function() {
+  const hash = window.location.hash || '';
+  if (!hash.includes('access_token=') && !hash.includes('error=')) return;
+
+  // We are the OAuth popup
+  console.log('%c[Drive][popup]', 'color:#4fc3f7;font-weight:bold', 'OAuth redirect detected in hash');
+
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  const token  = params.get('access_token');
+  const error  = params.get('error');
+
+  if (error) {
+    console.error('%c[Drive][popup]', 'color:#ef5350;font-weight:bold',
+      'OAuth error:', error, params.get('error_description') || '');
+  } else if (token) {
+    console.log('%c[Drive][popup]', 'color:#4fc3f7;font-weight:bold',
+      'access_token found, length:', token.length);
+  } else {
+    console.warn('%c[Drive][popup]', 'color:#ffb74d;font-weight:bold',
+      'Hash has access_token key but value is empty');
+  }
+
+  if (window.opener && !window.opener.closed) {
+    console.log('%c[Drive][popup]', 'color:#4fc3f7;font-weight:bold',
+      'Posting DRIVE_TOKEN to opener at', window.location.origin);
+    window.opener.postMessage(
+      { type: 'DRIVE_TOKEN', token: token || null, error: error || null },
+      window.location.origin
+    );
+  } else {
+    console.error('%c[Drive][popup]', 'color:#ef5350;font-weight:bold',
+      'window.opener is null — token cannot be relayed!',
+      '\n  Fix: remove Cross-Origin-Opener-Policy: same-origin from server.js');
+  }
+
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  window.close();
+})();
 
 // ───────────────────────────────────────────────────────────
 // STATE
@@ -826,48 +875,165 @@ async function handleLocalFile(slot, file) {
 }
 
 // ───────────────────────────────────────────────────────────
-// GOOGLE DRIVE  — GIS OAuth + Picker API
+// GOOGLE DRIVE  — OAuth2 implicit flow (popup) + Picker API
 // ───────────────────────────────────────────────────────────
+// ROOT CAUSE NOTE: This flow requires that the server does NOT send
+// Cross-Origin-Opener-Policy: same-origin. That header severs window.opener
+// in the OAuth popup, so postMessage never reaches this page and the popup
+// opens as a visible new tab instead of a dismissable popup window.
+// See server.js — the COOP header has been removed.
+
 const GDRIVE_CLIENT_ID  = '995043690566-pbslh2o02d0n1upmj4o605p91uqkuaot.apps.googleusercontent.com';
 const GDRIVE_API_KEY    = 'AIzaSyBS8BYa5kyke-D69ArAgb2qiNQd1KhJSnQ';
 const GDRIVE_APP_ID     = '995043690566';
-const GDRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive';
+const GDRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.readonly';
 const NATIVE_VIDEO_EXTS = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v']);
 
-let driveToken     = null;  // shared once authed
+let driveToken     = null;
 let pickerApiReady = false;
-let _pendingSlot   = null;  // which slot triggered the open
+let _pendingSlot   = null;
+let _oauthPopup    = null;
 
-// Load the Picker API via gapi — lazy, only when first button is clicked
-// Pre-load the picker module on page load (no auth needed for this step)
-// so it's ready by the time the user clicks
-window.addEventListener('load', () => {
-  const waitForGapi = setInterval(() => {
-    if (window.gapi) {
-      clearInterval(waitForGapi);
-      gapi.load('picker', {
-        callback: () => { pickerApiReady = true; console.log('[Drive] picker module pre-loaded'); },
-        onerror: () => console.warn('[Drive] picker pre-load failed — will retry on click'),
-      });
-    }
-  }, 200);
-});
+// ── Logging helpers ──────────────────────────────────────────
+function dlog(...a)  { console.log('%c[Drive]', 'color:#4fc3f7;font-weight:bold', ...a); }
+function derr(...a)  { console.error('%c[Drive]', 'color:#ef5350;font-weight:bold', ...a); }
+function dwarn(...a) { console.warn('%c[Drive]', 'color:#ffb74d;font-weight:bold', ...a); }
 
-// Build and show the picker — called once we have a token
-function showPicker(token) {
-  if (!pickerApiReady) {
-    toast('Picker API not ready yet — try again in a moment.', 'error');
-    console.error('[Drive] showPicker called but pickerApiReady=false');
+// ── Step 1: pre-load Picker module as soon as gapi script is ready ──
+// gapi.js is loaded with `async defer` so we poll until it exists.
+(function waitForGapi() {
+  if (!window.gapi) {
+    dwarn('gapi not yet available — retrying in 200 ms');
+    setTimeout(waitForGapi, 200);
     return;
   }
-  console.log('[Drive] building picker with token');
+  dlog('gapi ready → loading picker module');
+  gapi.load('picker', {
+    callback: () => {
+      pickerApiReady = true;
+      dlog('✓ Picker module loaded (google.picker is available)');
+      // If a token arrived while picker was still loading, open now
+      if (driveToken && _pendingSlot !== null) {
+        dlog('Deferred token found — opening picker for slot', _pendingSlot);
+        showPicker(driveToken);
+      }
+    },
+    onerror: (err) => {
+      derr('gapi.load("picker") failed:', err, '— retrying in 3 s');
+      setTimeout(waitForGapi, 3000);
+    },
+  });
+})();
+
+// ── Step 2: open OAuth popup when user clicks "Choose from Drive" ──
+const OAUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const REDIRECT  = window.location.origin + window.location.pathname; // e.g. http://localhost:30000/compare
+
+function openDrivePicker(slot) {
+  dlog('openDrivePicker — slot:', slot);
+  _pendingSlot = slot;
+
+  if (driveToken) {
+    dlog('Re-using cached token — skipping OAuth');
+    showPicker(driveToken);
+    return;
+  }
+
+  const params = new URLSearchParams({
+    client_id:              GDRIVE_CLIENT_ID,
+    redirect_uri:           REDIRECT,
+    response_type:          'token',
+    scope:                  GDRIVE_SCOPE,
+    include_granted_scopes: 'true',
+  });
+  const authUrl = OAUTH_URL + '?' + params.toString();
+
+  dlog('Opening OAuth popup');
+  dlog('  authUrl:', authUrl);
+  dlog('  redirect_uri:', REDIRECT);
+  dlog('  ⚠ This URI must be in Google Cloud Console → Credentials → Authorized redirect URIs');
+  dlog('  ⚠ Server must NOT send Cross-Origin-Opener-Policy: same-origin (breaks window.opener)');
+
+  if (_oauthPopup && !_oauthPopup.closed) { _oauthPopup.close(); }
+
+  _oauthPopup = window.open(authUrl, 'driveAuth', 'width=500,height=620,left=200,top=100');
+
+  if (!_oauthPopup || _oauthPopup.closed) {
+    derr('Popup was blocked by the browser');
+    toast('Popup blocked — allow popups for this site and try again.', 'error', 7000);
+    return;
+  }
+  dlog('Popup opened — waiting for token via postMessage…');
+  toast('Sign in with Google in the popup window…', 'info', 8000);
+}
+
+// ── Step 3: receive token from the popup via postMessage ──
+// When Google redirects the popup back to /compare, the intercept block
+// at the top of this script detects #access_token= in the hash, calls
+// window.opener.postMessage({type:'DRIVE_TOKEN', token}), then window.close().
+// This only works if the server does NOT send COOP: same-origin.
+window.addEventListener('message', function(e) {
+  if (e.origin !== window.location.origin) {
+    dwarn('Ignored postMessage from unexpected origin:', e.origin, '(expected:', window.location.origin + ')');
+    return;
+  }
+  if (!e.data || e.data.type !== 'DRIVE_TOKEN') return;
+
+  dlog('Received DRIVE_TOKEN postMessage from popup');
+
+  if (e.data.error) {
+    derr('OAuth error:', e.data.error);
+    toast('Google sign-in failed: ' + e.data.error, 'error', 6000);
+    return;
+  }
+  if (!e.data.token) {
+    derr('DRIVE_TOKEN message had no token and no error — ignoring');
+    return;
+  }
+
+  dlog('✓ Token received, length =', e.data.token.length, '| slot =', _pendingSlot);
+  driveToken = e.data.token;
+
+  if (_oauthPopup && !_oauthPopup.closed) {
+    dlog('Closing leftover popup');
+    _oauthPopup.close();
+    _oauthPopup = null;
+  }
+
+  if (!pickerApiReady) {
+    dwarn('Picker module not ready yet — will open automatically once it loads');
+    toast('Loading Drive picker…', 'info', 4000);
+    // waitForGapi() callback will call showPicker(driveToken) when ready
+    return;
+  }
+
+  showPicker(driveToken);
+});
+
+// ── Step 4: build and show the Google Picker ────────────────
+function showPicker(token) {
+  dlog('showPicker — pickerApiReady:', pickerApiReady, '| window.google?.picker:', !!window.google?.picker);
+
+  if (!pickerApiReady || !window.google?.picker) {
+    derr('Picker not ready. gapi available?', !!window.gapi, '| pickerApiReady:', pickerApiReady);
+    toast('Picker not ready — please try again in a moment.', 'error', 5000);
+    return;
+  }
+
+  dlog('Building picker for slot', _pendingSlot,
+       '| appId:', GDRIVE_APP_ID,
+       '| apiKey:', GDRIVE_API_KEY.slice(0,8) + '…',
+       '| token:', token.slice(0,8) + '…');
+
   try {
-    const view = new google.picker.DocsView()
-      .setIncludeFolders(false)
+    const myDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(false)
       .setMimeTypes('video/mp4,video/x-msvideo,video/webm,video/quicktime,video/x-matroska,video/avi,video/mpeg,video/x-m4v');
 
-    const sharedView = new google.picker.DocsView()
-      .setIncludeFolders(false)
+    const sharedView = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(false)
       .setEnableDrives(true)
       .setMimeTypes('video/mp4,video/x-msvideo,video/webm,video/quicktime,video/x-matroska,video/avi,video/mpeg,video/x-m4v');
 
@@ -875,73 +1041,41 @@ function showPicker(token) {
       .setOAuthToken(token)
       .setDeveloperKey(GDRIVE_API_KEY)
       .setAppId(GDRIVE_APP_ID)
-      .setTitle('Choose a video clip')
-      .addView(view)
+      .setTitle('Choose a video clip — Slot ' + (_pendingSlot || '').toUpperCase())
+      .addView(myDriveView)
       .addView(sharedView)
       .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
       .setCallback(pickerCallback)
       .build()
       .setVisible(true);
 
-    console.log('[Drive] picker shown');
+    dlog('✓ Picker is now visible');
   } catch(e) {
+    derr('Exception building picker:', e);
     toast('Picker error: ' + e.message, 'error', 6000);
-    console.error('[Drive] picker error:', e);
   }
 }
 
-// Called directly and SYNCHRONOUSLY from the click handler —
-// no await before requestAccessToken so the browser treats it as a user gesture
-function openDrivePicker(slot) {
-  _pendingSlot = slot;
-  console.log('[Drive] openDrivePicker slot=' + slot);
-
-  // If we already have a token, skip auth entirely
-  if (driveToken) {
-    console.log('[Drive] reusing existing token');
-    showPicker(driveToken);
-    return;
-  }
-
-  if (!window.google?.accounts?.oauth2) {
-    toast('Google script not loaded yet — try again in a moment.', 'error');
-    return;
-  }
-
-  // initTokenClient + requestAccessToken called synchronously within the click event
-  console.log('[Drive] requesting access token (sync from click)...');
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GDRIVE_CLIENT_ID,
-    scope: GDRIVE_SCOPE,
-    callback: resp => {
-      console.log('[Drive] token response:', resp);
-      if (resp.error) {
-        toast('Sign-in failed: ' + (resp.error_description || resp.error), 'error', 6000);
-        console.error('[Drive] token error:', resp);
-        return;
-      }
-      if (!resp.access_token) {
-        toast('No token returned — check Cloud Console origins.', 'error', 6000);
-        return;
-      }
-      driveToken = resp.access_token;
-      console.log('[Drive] token received, showing picker...');
-      showPicker(driveToken);
-    },
-  });
-  tokenClient.requestAccessToken({ prompt: 'select_account' });
-}
-
+// ── Step 5: handle file selection ───────────────────────────
 function pickerCallback(data) {
+  dlog('pickerCallback — action:', data.action);
+  if (data.action === google.picker.Action.CANCEL) {
+    dlog('User cancelled picker');
+    return;
+  }
   if (data.action !== google.picker.Action.PICKED) return;
-  const doc      = data.docs[0];
-  const fileId   = doc.id;
-  const fileName = doc.name;
-  const slot     = _pendingSlot;
 
+  const docs = data.docs;
+  if (!docs || !docs.length) { derr('Picked action but docs array is empty', data); return; }
+
+  const fileId   = docs[0].id;
+  const fileName = docs[0].name;
+  const mimeType = docs[0].mimeType;
+  dlog('File picked — name:', fileName, '| id:', fileId, '| mime:', mimeType, '| slot:', _pendingSlot);
+
+  const slot     = _pendingSlot;
   const statusEl = document.getElementById('driveStatus' + slot.toUpperCase());
   if (statusEl) statusEl.innerHTML = '<span class="gdrive-selected">📥 ' + fileName + '</span>';
-
   loadDriveFile(slot, fileId, fileName);
 }
 
@@ -950,21 +1084,29 @@ document.getElementById('driveOpenB').addEventListener('click', function() { ope
 
 async function loadDriveFile(slot, fileId, fileName) {
   const token = driveToken;
-  if (!token) { toast('No Drive token.', 'error'); return; }
+  dlog('loadDriveFile — slot:', slot, '| file:', fileName, '| id:', fileId);
+  if (!token) { derr('No Drive token available'); toast('No Drive token — please reconnect.', 'error'); return; }
 
   const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase() : '';
+  dlog('File extension:', ext, '| native?', NATIVE_VIDEO_EXTS.has(ext));
 
   // Download from Drive
   showSlotLoading(slot, 'Downloading from Drive...', 0);
   let blob;
   try {
+    dlog('Fetching from Drive API…');
     const resp = await fetch(
       'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true',
       { headers: { Authorization: 'Bearer ' + token } }
     );
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    dlog('Drive API response — status:', resp.status, resp.statusText);
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      throw new Error('HTTP ' + resp.status + (body ? ': ' + body.slice(0, 120) : ''));
+    }
     const reader = resp.body.getReader();
     const total  = parseInt(resp.headers.get('Content-Length') || '0');
+    dlog('Download starting — Content-Length:', total || '(unknown)');
     const chunks = []; let received = 0;
     for (;;) {
       const { done, value } = await reader.read();
@@ -973,18 +1115,20 @@ async function loadDriveFile(slot, fileId, fileName) {
       if (total) showSlotLoading(slot, 'Downloading...', Math.round(received / total * (NATIVE_VIDEO_EXTS.has(ext) ? 100 : 50)));
     }
     blob = new Blob(chunks);
+    dlog('Download complete — blob size:', blob.size, 'bytes');
   } catch(e) {
+    derr('Drive download error:', e);
     hideSlotLoading(slot);
     toast('Drive download error: ' + e.message, 'error');
     return;
   }
 
   if (NATIVE_VIDEO_EXTS.has(ext)) {
-    // Native — use blob URL directly
+    dlog('Native format — using blob URL directly');
     hideSlotLoading(slot);
     setSlotSource(slot, { type: 'gdrive', filename: fileName, src: URL.createObjectURL(blob) });
   } else {
-    // Non-native (AVI etc.) — upload to server for conversion
+    dlog('Non-native format (', ext, ') — uploading to server for conversion');
     showSlotLoading(slot, 'Converting...', 55);
     const form = new FormData();
     form.append('file', blob, fileName);
@@ -996,13 +1140,17 @@ async function loadDriveFile(slot, fileId, fileName) {
     };
     xhr.onload = () => {
       hideSlotLoading(slot);
-      if (xhr.status !== 200) { toast('Conversion failed: ' + xhr.statusText, 'error'); return; }
+      if (xhr.status !== 200) {
+        derr('Conversion failed — status:', xhr.status, xhr.statusText);
+        toast('Conversion failed: ' + xhr.statusText, 'error'); return;
+      }
       try {
         const data = JSON.parse(xhr.responseText);
+        dlog('Conversion complete — streamUrl:', data.streamUrl);
         setSlotSource(slot, { type: 'gdrive', filename: fileName, src: data.streamUrl });
-      } catch { toast('Bad server response', 'error'); }
+      } catch(e) { derr('Bad server response:', xhr.responseText); toast('Bad server response', 'error'); }
     };
-    xhr.onerror = () => { hideSlotLoading(slot); toast('Upload error', 'error'); };
+    xhr.onerror = () => { derr('XHR upload error'); hideSlotLoading(slot); toast('Upload error', 'error'); };
     xhr.send(form);
   }
 }
