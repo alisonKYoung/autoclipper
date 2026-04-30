@@ -29,7 +29,7 @@
     color: var(--text);
     font-family: 'Exo 2', sans-serif;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden;
   }
 
   body::before {
@@ -43,6 +43,10 @@
   }
 
   .app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
+  @media (max-width: 700px) {
+    .app { height: auto; }
+    .main { height: auto; }
+  }
 
   /* ── Header ── */
   header {
@@ -212,54 +216,75 @@
   @media (max-width: 700px) {
     body { overflow: auto; }
     .app { height: auto; min-height: 100vh; }
-    .body { flex-direction: column; overflow: visible; }
 
-    /* Left panel becomes top panel */
-    .left-panel { width: 100%; max-height: none; border-right: none; border-bottom: 1px solid var(--border); overflow: visible; flex-shrink: 0; }
+    /* Stack everything vertically */
+    .main { flex-direction: column; overflow: visible; height: auto; }
 
-    /* Video area stacks below */
-    .video-area { overflow: visible; min-height: 55vw; }
-    .video-wrap { height: 55vw; min-height: 200px; }
+    /* Sidebar becomes a top panel */
+    .sidebar {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      overflow: visible;
+      max-height: none;
+    }
 
-    /* Controls row wraps */
-    .controls-row { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
-    .tc-btn { padding: 5px 8px; font-size: 10px; }
-    .play-btn { padding: 5px 14px !important; }
+    /* Sidebar sections get comfortable padding */
+    .sb-section { padding: 10px 12px; }
+    .sb-section h3 { margin-bottom: 8px; }
 
-    /* Seekbar area */
-    .seekbar-section { padding: 6px 10px 0; }
+    /* Input rows */
+    input[type="text"], input[type="number"], select {
+      font-size: 16px; /* Prevent iOS zoom on focus */
+      padding: 9px;
+    }
 
-    /* Queue and clip list */
-    .clip-queue { max-height: 220px; }
+    /* Buttons bigger for touch */
+    .btn { min-height: 42px; font-size: 13px; }
+    .btn-set-start, .btn-set-end, .btn-set-c2 { min-height: 38px; }
+
+    /* Video area */
+    .video-area { overflow: visible; min-height: 56vw; }
+    .video-wrapper { height: 56vw; min-height: 210px; }
+    #videoPlayer { display: block; }
+
+    /* Transport controls */
+    .transport { display: block !important; padding: 8px 10px; }
+    .transport-controls { flex-wrap: wrap; gap: 5px; }
+    .tc-btn { padding: 6px 9px; font-size: 11px; min-height: 36px; }
+    .tc-btn.play-btn { padding: 6px 16px !important; flex: 1; min-width: 90px; }
+    .frame-counter {
+      width: 100%; margin-left: 0; margin-top: 4px;
+      justify-content: center; text-align: center; font-size: 10px;
+    }
+
+    /* Clip queue becomes a bottom panel */
+    .clip-queue {
+      width: 100%;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      max-height: none;
+    }
+    .clip-list { max-height: 280px; }
 
     /* Header */
     header { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
     .logo { font-size: 16px; }
     .tag { display: none; }
     .status-bar { font-size: 10px; }
-    .nav-link { font-size: 10px; padding: 3px 8px; }
 
-    /* Form fields */
-    .fields-row { flex-direction: column; gap: 6px; }
-    .field-group { width: 100%; }
+    /* Timing grid */
+    .timing-grid { grid-template-columns: 1fr 1fr; gap: 5px; }
+    .timing-box .tb-value { font-size: 13px; }
 
-    /* Kbd hints hidden on mobile */
+    /* Kbd hints hidden */
     .kbd-hints { display: none; }
-
-    /* Info bar wraps */
-    .info-bar { flex-wrap: wrap; gap: 4px; padding: 5px 10px; }
-    .info-chip { padding: 2px 6px; }
-    .info-label { font-size: 8px; }
-    .info-value { font-size: 9px; }
-
-    /* Panel sections */
-    .panel-section { padding: 10px 12px; }
-    .section-title { font-size: 9px; }
-
-    /* Buttons */
-    .btn { font-size: 12px; padding: 7px 12px; }
   }
 
+  /* Landscape phone */
+  @media (max-width: 900px) and (orientation: landscape) {
+    .video-wrapper { height: 40vw; }
+  }
 </style>
 </head>
 <body>
@@ -359,7 +384,7 @@
           </svg>
           <p>FETCH A YOUTUBE VIDEO</p>
         </div>
-        <video id="videoPlayer" tabindex="-1"></video>
+        <video id="videoPlayer" tabindex="-1" playsinline webkit-playsinline></video>
         <div class="video-info-bar" id="videoInfoBar">
           <div class="vi-title" id="viTitle"></div>
           <div class="vi-meta" id="viMeta"></div>

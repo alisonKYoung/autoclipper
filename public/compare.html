@@ -388,26 +388,71 @@
     body { overflow: auto; }
     .app { height: auto; min-height: 100vh; }
     .body { flex-direction: column; overflow: visible; }
-    .left-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); overflow: visible; }
+
+    /* Collapsible left panel */
+    .left-panel {
+      width: 100%; border-right: none; border-bottom: 1px solid var(--border);
+      overflow: visible; max-height: none;
+    }
+    .left-panel-toggle {
+      display: flex !important;
+    }
+    .left-panel-body {
+      display: none;
+    }
+    .left-panel-body.open {
+      display: block;
+    }
+
     .video-area { overflow: visible; }
     .dual-video { flex-direction: column; height: auto; }
-    .video-slot { flex: none; height: 42vw; min-height: 160px; border-bottom: 2px solid var(--border); }
+
+    /* Videos side by side on landscape, stacked on portrait */
+    .video-slot {
+      flex: none;
+      height: 44vw;
+      min-height: 150px;
+      border-bottom: 2px solid var(--border);
+    }
     .video-slot:last-child { border-bottom: none; }
+
+    /* Transport */
     .transport { padding: 8px 10px; }
-    .transport-controls { gap: 4px; }
-    .tc-btn { padding: 5px 7px; font-size: 10px; }
-    .time-display { width: 100%; margin-left: 0; margin-top: 6px; justify-content: space-between; font-size: 10px; }
-    .markers-bar { gap: 4px; padding: 5px 10px; }
-    .mbar-chip { padding: 2px 5px; }
-    .mbar-label { font-size: 8px; }
-    .mbar-value { font-size: 9px; }
+    .transport-controls { gap: 4px; flex-wrap: wrap; }
+    .tc-btn { padding: 6px 8px; font-size: 11px; min-height: 36px; }
+    .play-btn { flex: 1; min-width: 100px; }
+    .time-display {
+      width: 100%; margin-left: 0; margin-top: 6px;
+      justify-content: space-around; font-size: 10px;
+      flex-wrap: wrap; gap: 4px;
+    }
+
+    .markers-bar { gap: 4px; padding: 5px 10px; display: none !important; }
     .kbd-hints { display: none; }
+
     header { padding: 8px 12px; gap: 8px; }
     .logo { font-size: 16px; }
     .tag { display: none; }
     .status-bar { display: none; }
     .panel-section { padding: 10px 12px; }
+
+    /* Bigger touch targets for slot tabs */
+    .stab { padding: 7px 6px; font-size: 10px; min-height: 34px; }
+    .qp-item { padding: 9px; font-size: 10px; }
+    .btn { min-height: 40px; font-size: 13px; }
+    .file-input-btn { padding: 10px; font-size: 10px; min-height: 40px; }
   }
+
+  /* Landscape phone: side-by-side videos */
+  @media (max-width: 900px) and (orientation: landscape) {
+    .dual-video { flex-direction: row !important; height: calc(100vw * 0.28) !important; }
+    .video-slot { height: 100% !important; border-bottom: none !important; border-right: 2px solid var(--border); }
+    .video-slot:last-child { border-right: none; }
+  }
+
+  /* Left panel toggle button — hidden on desktop */
+  .left-panel-toggle { display: none; }
+
 
 </style>
 </head>
@@ -429,6 +474,20 @@
 
     <!-- LEFT PANEL -->
     <div class="left-panel">
+
+      <!-- Mobile toggle -->
+      <button class="left-panel-toggle" id="panelToggle" style="
+        width:100%; padding:10px 16px; background:var(--surface2); border:none;
+        border-bottom:1px solid var(--border); color:var(--text);
+        font-family:'Rajdhani',sans-serif; font-weight:600; font-size:12px;
+        letter-spacing:2px; text-transform:uppercase; cursor:pointer;
+        display:flex; align-items:center; justify-content:space-between;
+      ">
+        <span>⚙ CLIP SELECTION</span>
+        <span id="panelToggleArrow">▼</span>
+      </button>
+
+      <div class="left-panel-body" id="leftPanelBody">
 
       <!-- Slot A -->
       <div class="panel-section">
@@ -502,6 +561,7 @@
         <button class="btn btn-purple" id="loadBothBtn" disabled>▶ LOAD COMPARISON</button>
       </div>
 
+      </div><!-- /left-panel-body -->
     </div>
 
     <!-- VIDEO AREA -->
@@ -514,7 +574,7 @@
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             <p>SELECT CLIP A</p>
           </div>
-          <video id="videoA" tabindex="-1" preload="auto"></video>
+          <video id="videoA" tabindex="-1" preload="auto" playsinline webkit-playsinline x5-playsinline></video>
           <div class="slot-overlay">
             <div class="slot-badge a">A</div>
             <div class="slot-title-text" id="titleA"></div>
@@ -537,7 +597,7 @@
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             <p>SELECT CLIP B</p>
           </div>
-          <video id="videoB" tabindex="-1" preload="auto"></video>
+          <video id="videoB" tabindex="-1" preload="auto" playsinline webkit-playsinline x5-playsinline></video>
           <div class="slot-overlay">
             <div class="slot-badge b">B</div>
             <div class="slot-title-text" id="titleB"></div>
@@ -1026,16 +1086,25 @@ function showPicker(token) {
        '| token:', token.slice(0,8) + '…');
 
   try {
-    const myDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+    const VIDEO_MIMES = 'video/mp4,video/x-msvideo,video/webm,video/quicktime,video/x-matroska,video/avi,video/mpeg,video/x-m4v';
+
+    // My Drive — folder-navigable view filtered to video mime types
+    // DocsView (not DOCS_VIDEOS) is required for folder navigation.
+    // DOCS_VIDEOS is a search index that doesn't let you browse into folders.
+    const myDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
       .setIncludeFolders(true)
       .setSelectFolderEnabled(false)
-      .setMimeTypes('video/mp4,video/x-msvideo,video/webm,video/quicktime,video/x-matroska,video/avi,video/mpeg,video/x-m4v');
+      .setMimeTypes(VIDEO_MIMES);
 
-    const sharedView = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+    // Shared Drives — must use ViewId.DOCS (not DOCS_VIDEOS) for Shared Drive
+    // browsing. DOCS_VIDEOS does not index Shared Drive content for navigation.
+    // setEnableDrives(true) + Feature.SUPPORT_DRIVES enables the Shared Drives
+    // sidebar tab. Without ViewId.DOCS the folder tree never populates.
+    const sharedView = new google.picker.DocsView(google.picker.ViewId.DOCS)
       .setIncludeFolders(true)
       .setSelectFolderEnabled(false)
       .setEnableDrives(true)
-      .setMimeTypes('video/mp4,video/x-msvideo,video/webm,video/quicktime,video/x-matroska,video/avi,video/mpeg,video/x-m4v');
+      .setMimeTypes(VIDEO_MIMES);
 
     new google.picker.PickerBuilder()
       .setOAuthToken(token)
@@ -1463,7 +1532,33 @@ document.getElementById('nextFrameBtn').addEventListener('click', () => {
 // ───────────────────────────────────────────────────────────
 // INIT
 // ───────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────
+// MOBILE PANEL TOGGLE
+// ───────────────────────────────────────────────────────────
+(function() {
+  const toggleBtn  = document.getElementById('panelToggle');
+  const panelBody  = document.getElementById('leftPanelBody');
+  const arrow      = document.getElementById('panelToggleArrow');
+  if (!toggleBtn) return;
+  function isMobile() { return window.innerWidth <= 700; }
+  function applyState() {
+    if (!isMobile()) {
+      panelBody.style.display = '';
+      panelBody.classList.remove('open');
+      return;
+    }
+    // On mobile start collapsed
+  }
+  toggleBtn.addEventListener('click', () => {
+    const open = panelBody.classList.toggle('open');
+    arrow.textContent = open ? '▲' : '▼';
+  });
+  window.addEventListener('resize', applyState);
+  applyState();
+})();
+
 loadQueue();
+
 (async () => {
   try {
     const r = await fetch('/api/check');
