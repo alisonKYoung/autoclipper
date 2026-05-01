@@ -574,7 +574,7 @@
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             <p>SELECT CLIP A</p>
           </div>
-          <video id="videoA" tabindex="-1" preload="auto" playsinline webkit-playsinline x5-playsinline></video>
+          <video id="videoA" tabindex="-1" preload="metadata" playsinline webkit-playsinline x5-playsinline></video>
           <div class="slot-overlay">
             <div class="slot-badge a">A</div>
             <div class="slot-title-text" id="titleA"></div>
@@ -597,7 +597,7 @@
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             <p>SELECT CLIP B</p>
           </div>
-          <video id="videoB" tabindex="-1" preload="auto" playsinline webkit-playsinline x5-playsinline></video>
+          <video id="videoB" tabindex="-1" preload="metadata" playsinline webkit-playsinline x5-playsinline></video>
           <div class="slot-overlay">
             <div class="slot-badge b">B</div>
             <div class="slot-title-text" id="titleB"></div>
@@ -891,47 +891,19 @@ document.getElementById('fileB').addEventListener('change', e => {
   e.target.value = '';
 });
 
-const NATIVE_EXTS = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v']);
+// All formats are attempted directly as a blob URL — no server upload needed.
+// Chrome/Edge play AVI (H.264 inside AVI) natively via blob URL.
+// If the browser truly cannot decode the file, the onerror in loadSlotVideo
+// will surface a clear message. The server path is no longer used for local files.
+const NATIVE_EXTS = new Set(['.mp4', '.webm', '.ogg', '.mov', '.m4v', '.avi', '.mkv', '.ts', '.m2ts']);
 
 async function handleLocalFile(slot, file) {
-  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-  if (NATIVE_EXTS.has(ext)) {
-    setSlotSource(slot, { type: 'local', filename: file.name, src: URL.createObjectURL(file) });
-    return;
-  }
-  // Non-native (AVI, MKV, etc.) — upload for server-side conversion
-  showSlotLoading(slot, 'Uploading for conversion...', 10);
-  const form = new FormData();
-  form.append('file', file);
-  try {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload-for-compare');
-    xhr.upload.onprogress = ev => {
-      if (ev.lengthComputable)
-        showSlotLoading(slot, 'Uploading...', Math.round(ev.loaded / ev.total * 70));
-    };
-    xhr.onload = () => {
-      if (xhr.status !== 200) {
-        hideSlotLoading(slot);
-        toast('Upload failed: ' + xhr.statusText, 'error');
-        return;
-      }
-      let data;
-      try { data = JSON.parse(xhr.responseText); } catch {
-        hideSlotLoading(slot);
-        toast('Bad response from server', 'error');
-        return;
-      }
-      showSlotLoading(slot, 'Converting...', 85);
-      hideSlotLoading(slot);
-      setSlotSource(slot, { type: 'local', filename: file.name, src: data.streamUrl });
-    };
-    xhr.onerror = () => { hideSlotLoading(slot); toast('Upload error', 'error'); };
-    xhr.send(form);
-  } catch(e) {
-    hideSlotLoading(slot);
-    toast('Error: ' + e.message, 'error');
-  }
+  // Always create a local blob URL — works for AVI, MKV, MP4, etc.
+  // No server upload or conversion needed. If the browser can't decode
+  // the codec inside the container, the video element's onerror fires
+  // and the user sees a clear error message.
+  const objectUrl = URL.createObjectURL(file);
+  setSlotSource(slot, { type: 'local', filename: file.name, src: objectUrl, _objectUrl: objectUrl });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1291,7 +1263,13 @@ function loadSlotVideo(slot, source) {
       titleEl.textContent = source.filename.replace(/\.[^.]+$/, '');
       resolve();
     };
-    vid.onerror = () => reject(new Error('Cannot load ' + source.filename + ' — unsupported format?'));
+    vid.onerror = () => {
+      const ext = (source.filename.slice(source.filename.lastIndexOf('.')).toLowerCase());
+      const hint = (ext === '.avi' || ext === '.mkv')
+        ? ' — AVI/MKV files need H.264 video codec inside the container. MJPEG or DivX AVI will not play in browser.'
+        : ' — unsupported codec or format?';
+      reject(new Error('Cannot load ' + source.filename + hint));
+    };
     vid.src = source.src;
     vid.load();
   });
@@ -1415,19 +1393,29 @@ function togglePlay() {
 
 playPauseBtn.addEventListener('click', togglePlay);
 
-// Sync pending check: start B when A passes offset
+// ── Transport update — throttled to display refresh rate via rAF ──────────────
+// Calling DOM writes on every timeupdate (up to 4x/sec but can be more)
+// causes jank. We instead schedule a single rAF per animation frame.
+let _rafPending = false;
+function scheduleTransportUpdate() {
+  if (_rafPending) return;
+  _rafPending = true;
+  requestAnimationFrame(() => {
+    _rafPending = false;
+    updateTransport();
+  });
+}
+
+// Single timeupdate handler on A handles both sync-pending logic and UI update
 videoA.addEventListener('timeupdate', () => {
   if (syncPending && videoA.currentTime >= S.offset) {
     syncPending = false;
-    // Set B position to compensate
     videoB.currentTime = videoA.currentTime - S.offset;
     videoB.play();
   }
+  scheduleTransportUpdate();
 });
-
-// Seekbar driven by A
-videoA.addEventListener('timeupdate', updateTransport);
-videoB.addEventListener('timeupdate', updateTransport);
+videoB.addEventListener('timeupdate', scheduleTransportUpdate);
 
 function updateTransport() {
   if (!S.loadedA) return;
@@ -1448,15 +1436,41 @@ function updateTransport() {
     document.getElementById('progressB').style.width = (videoB.currentTime / videoB.duration * 100) + '%';
 }
 
-// Seekbar scrub
+// Seekbar scrub — debounced so currentTime is only set after the user
+// briefly pauses dragging. Setting currentTime on every input event
+// hammers the decode pipeline and causes visible freezes.
+let _seekDebounce = null;
+let _wasPlayingBeforeSeek = false;
+
+seekbar.addEventListener('pointerdown', () => {
+  _wasPlayingBeforeSeek = isPlaying(videoA) || isPlaying(videoB);
+  if (_wasPlayingBeforeSeek) pauseBoth();
+});
+
 seekbar.addEventListener('input', () => {
   if (!S.loadedA) return;
+  // Update the visual fill immediately (feels responsive)
+  const pct = seekbar.value / 10000;
+  seekFill.style.width = (pct * 100) + '%';
+  // Debounce the actual seek
+  clearTimeout(_seekDebounce);
+  _seekDebounce = setTimeout(() => {
+    const t = pct * videoA.duration;
+    videoA.currentTime = t;
+    if (S.syncEnabled && S.loadedB) {
+      videoB.currentTime = Math.max(0, t - S.offset);
+    }
+  }, 80);
+});
+
+seekbar.addEventListener('pointerup', () => {
+  clearTimeout(_seekDebounce);
   const t = (seekbar.value / 10000) * videoA.duration;
   videoA.currentTime = t;
   if (S.syncEnabled && S.loadedB) {
-    const tB = Math.max(0, t - S.offset);
-    videoB.currentTime = tB;
+    videoB.currentTime = Math.max(0, t - S.offset);
   }
+  if (_wasPlayingBeforeSeek) playBoth();
 });
 
 // Restart
